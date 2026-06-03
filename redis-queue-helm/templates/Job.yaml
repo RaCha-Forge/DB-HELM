@@ -47,19 +47,6 @@ spec:
               for i in $(seq 1 $REPLICA_COUNT); do
                 REPLICA_HOST="redis-queue-${i}-0.redis-queue-${i}.{{ .Release.Namespace }}.svc.cluster.local"
                 echo "Waiting for replica redis-queue-${i}-0 at $REPLICA_HOST..."
-                
-                # Wait for DNS
-                for j in $(seq 1 90); do
-                  if nslookup "$REPLICA_HOST" >/dev/null 2>&1; then 
-                    echo "  DNS resolved for redis-queue-${i}-0"
-                    break
-                  fi
-                  sleep 2
-                  if [ "$j" -eq 90 ]; then 
-                    echo "  ERROR: DNS failed for redis-queue-${i}-0 after 3 minutes"
-                    exit 1
-                  fi
-                done
 
                 # Wait for Redis to be ready
                 for j in $(seq 1 90); do

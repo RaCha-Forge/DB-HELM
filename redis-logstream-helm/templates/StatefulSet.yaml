@@ -1,5 +1,4 @@
 {{- if eq .Values.services.RedisQueue.enabled "true" }}
-
 # ===========================
 # PRIMARY REDIS STATEFULSET (redis-queue-0)
 # ===========================
@@ -57,13 +56,11 @@ spec:
                       values:
                         - redis-queue
                 topologyKey: kubernetes.io/hostname
-
-
       containers:
         - name: redis
           image: {{ .Values.services.RedisQueue.image }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
-          # command: ["redis-server"]
+          command: ["redis-server", "--user monitoruser on >9sIb7mh8DT6AH27irj67D  ~* +@all"]
           args:
             - --port
             - {{ .Values.services.RedisQueue.port | quote }}
@@ -170,7 +167,6 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
-
 {{- if and (eq .Values.services.RedisController.enabled "true") (eq .Values.services.RedisController.runAsSidecar "true") }}
         # HA Controller Sidecar
         - name: ha-controller
@@ -223,7 +219,6 @@ spec:
               cpu: {{ .Values.services.RedisController.resources.limits.cpu | quote }}
               memory: {{ .Values.services.RedisController.resources.limits.memory | quote }}
 {{- end }}
-
       volumes:
 {{- if and (eq .Values.services.RedisController.enabled "true") (eq .Values.services.RedisController.runAsSidecar "true") }}
         - name: ha-scripts
@@ -232,7 +227,6 @@ spec:
         - name: deps
           emptyDir: {}
 {{- end }}
-
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -305,13 +299,11 @@ spec:
                       values:
                         - redis-queue
                 topologyKey: kubernetes.io/hostname
-
-
       containers:
         - name: redis
           image: {{ $.Values.services.RedisQueue.image }}
           imagePullPolicy: {{ $.Values.imagePullPolicy }}
-          # command: ["redis-server"]
+          command: ["redis-server", "--user monitoruser on >9sIb7mh8DT6AH27irj67D  ~* +@all"]
           args:
             - --port
             - {{ $.Values.services.RedisQueue.port | quote }}

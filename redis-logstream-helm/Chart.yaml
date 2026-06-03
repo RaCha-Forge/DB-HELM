@@ -1,5 +1,5 @@
 apiVersion: v2
 name: redis-queue
 description: Redis Queue - Optimized for job queues (Celery, Bull, BullMQ)
-version: 7.4.0
-appVersion: "7.4"
+version: 8.6.3
+appVersion: "8.6.3"

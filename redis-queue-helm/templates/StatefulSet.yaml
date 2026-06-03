@@ -49,34 +49,11 @@ spec:
                       values:
                         - redis-queue
                 topologyKey: kubernetes.io/hostname
-
-{{- if and (eq .Values.services.RedisController.enabled "true") (eq .Values.services.RedisController.runAsSidecar "true") }}
-      initContainers:
-        - name: install-deps
-          image: {{ .Values.services.RedisController.image }}
-          imagePullPolicy: {{ .Values.imagePullPolicy }}
-          command:
-            - /bin/bash
-            - -c
-            - |
-              pip install --no-cache-dir redis kubernetes --target=/deps
-          volumeMounts:
-            - name: deps
-              mountPath: /deps
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "128Mi"
-            limits:
-              cpu: "100m"
-              memory: "256Mi"
-{{- end }}
-
       containers:
         - name: redis
           image: {{ .Values.services.RedisQueue.image }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
-          # command: ["redis-server"]
+          command: ["redis-server", "--user monitoruser on >9sIb7mh8DT6AH27irj67D  ~* +@all"]
           args:
             - --port
             - {{ .Values.services.RedisQueue.port | quote }}
@@ -318,34 +295,11 @@ spec:
                       values:
                         - redis-queue
                 topologyKey: kubernetes.io/hostname
-
-{{- if and (eq $.Values.services.RedisController.enabled "true") (eq $.Values.services.RedisController.runAsSidecar "true") }}
-      initContainers:
-        - name: install-deps
-          image: {{ $.Values.services.RedisController.image }}
-          imagePullPolicy: {{ $.Values.imagePullPolicy }}
-          command:
-            - /bin/bash
-            - -c
-            - |
-              pip install --no-cache-dir redis kubernetes --target=/deps
-          volumeMounts:
-            - name: deps
-              mountPath: /deps
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "128Mi"
-            limits:
-              cpu: "100m"
-              memory: "256Mi"
-{{- end }}
-
       containers:
         - name: redis
           image: {{ $.Values.services.RedisQueue.image }}
           imagePullPolicy: {{ $.Values.imagePullPolicy }}
-          # command: ["redis-server"]
+          command: ["redis-server", "--user monitoruser on >9sIb7mh8DT6AH27irj67D  ~* +@all"]
           args:
             - --port
             - {{ $.Values.services.RedisQueue.port | quote }}

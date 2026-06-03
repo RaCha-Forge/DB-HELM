@@ -9,16 +9,16 @@ fullnameOverride: ""
 
 # Redis configuration
 redis:
-  replicaCount: 0  # Number of replica pods (total pods = replicaCount + 1)
-  promotableReplicas: "0"  # Comma-separated indexes of replicas eligible for promotion (0-based)
+  replicaCount: 1  # Number of replica pods (total pods = replicaCount + 1)
+  promotableReplicas: "0,1"  # Comma-separated indexes of replicas eligible for promotion (0-based)
 
 # RBAC configuration
 serviceAccount:
-  create: false
+  create: true
   name: ""  # Auto-generated: redis-queue-failover-sa
 
 rbac:
-  create: false
+  create: true
   roleName: ""  # Auto-generated: redis-queue-failover-role
   roleBindingName: ""  # Auto-generated: redis-queue-failover-rb
 
@@ -59,7 +59,7 @@ storageClass:
 services:
   # Replication Init Job
   ReplicationInitJob:
-    enabled: "false"
+    enabled: "true"
     image: cgr.dev/chainguard/redis:latest
 
   # Redis Queue Configuration - OPTIMIZED FOR JOB QUEUES
@@ -107,7 +107,7 @@ services:
 
   # Redis Controller (HA Failover)
   RedisController:
-    enabled: "false"
+    enabled: "true"
     runAsSidecar: "true"
     image: python:3.11-slim
     replicas: 1

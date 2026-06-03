@@ -3,4 +3,4 @@ name: redis-ts
 description: Redis Cache with HA Failover - Cache-optimized configuration with allkeys-lru eviction
 type: application
 version: 8.6.3
-appVersion: "7.4"
+appVersion: "8.6.3"

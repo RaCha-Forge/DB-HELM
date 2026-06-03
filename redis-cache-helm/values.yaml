@@ -10,16 +10,16 @@ fullnameOverride: ""
 
 # Redis configuration
 redis:
-  replicaCount: 0
-  promotableReplicas: "0"
+  replicaCount: 1  # Number of replica pods (total pods = replicaCount + 1)
+  promotableReplicas: "0,1"  # Comma-separated indexes of replicas eligible for promotion (0-based)
 
 # RBAC configuration
 serviceAccount:
-  create: false
+  create: true
   name: ""  # Auto-generated: redis-cache-failover-sa
 
 rbac:
-  create: false
+  create: true
   roleName: ""  # Auto-generated: redis-cache-failover-role
   roleBindingName: ""  # Auto-generated: redis-cache-failover-rb
 
@@ -60,7 +60,7 @@ storageClass:
 services:
   # Replication Init Job
   ReplicationInitJob:
-    enabled: "false"
+    enabled: "true"
     image: redis:7-alpine
 
   # Redis Cache Configuration - OPTIMIZED FOR CACHING
@@ -113,7 +113,7 @@ services:
 
   # Redis Controller (HA Failover)
   RedisController:
-    enabled: "false"
+    enabled: "true"
     runAsSidecar: "true"
     image: python:3.11-slim
     replicas: 1

@@ -10,8 +10,8 @@ fullnameOverride: ""
 
 # Redis configuration
 redis:
-  replicaCount: 1
-  promotableReplicas: "0"
+  replicaCount: 1  # Number of replica pods (total pods = replicaCount + 1)
+  promotableReplicas: "0,1"  # Comma-separated indexes of replicas eligible for promotion (0-based)
 
 # RBAC configuration
 serviceAccount:
