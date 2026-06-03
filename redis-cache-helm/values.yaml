@@ -1,0 +1,126 @@
+# ===========================
+# Redis Cache Helm Chart Values
+# Optimized for: Application Caching, Session Storage, Temporary Data
+# Strategy: Fast eviction, minimal persistence, speed over durability
+# ===========================
+
+# Override default names (leave empty to use chart defaults)
+nameOverride: "redis-cache"
+fullnameOverride: ""
+
+# Redis configuration
+redis:
+  replicaCount: 0
+  promotableReplicas: "0"
+
+# RBAC configuration
+serviceAccount:
+  create: false
+  name: ""  # Auto-generated: redis-cache-failover-sa
+
+rbac:
+  create: false
+  roleName: ""  # Auto-generated: redis-cache-failover-role
+  roleBindingName: ""  # Auto-generated: redis-cache-failover-rb
+
+# ConfigMap configuration
+configMap:
+  name: ""  # Auto-generated: redis-cache-ha-scripts
+
+# Secret configuration
+secrets:
+  name: ""  # Auto-generated: redis-cache-secret
+  redisPassword: "Redis@password"
+
+# Job configuration
+job:
+  name: ""  # Auto-generated: redis-cache-replication-init
+
+# Service configuration
+service:
+  name: ""  # Auto-generated: redis-cache
+
+# Lease configuration
+lease:
+  name: ""  # Auto-generated: redis-cache-ha-controller-lease
+
+# Image pull secret configuration
+imagePullSecret:
+  enabled: "false"
+  value: ecr-secret
+
+# Image pull policy
+imagePullPolicy: IfNotPresent
+
+# Storage class configuration
+storageClass:
+  name: "gp3"
+
+# Service configuration
+services:
+  # Replication Init Job
+  ReplicationInitJob:
+    enabled: "false"
+    image: redis:7-alpine
+
+  # Redis Cache Configuration - OPTIMIZED FOR CACHING
+  RedisCache:
+    enabled: "true"
+    image: 543458926801.dkr.ecr.ap-south-1.amazonaws.com/fyno/redis:latest
+    port: 6001
+    
+    # CACHE-OPTIMIZED REDIS CONFIGURATION
+    config:
+      # Memory Management - Evict keys with TTL first
+      maxmemory: "6gb"
+      maxmemoryPolicy: "volatile-lru"  # Only evict keys with TTL (cache pattern)
+      maxmemorySamples: 10  # Better LRU accuracy
+      
+      # Minimal Persistence - Cache can be regenerated from source
+      appendonly: "yes"  # NO AOF for maximum write speed
+      save: ""  # Light RDB: only if significant changes
+      
+      # Fast Eviction & Memory Optimization
+      activedefrag: "yes"  # Defragment memory actively
+      lazyfreeMemoryEviction: "yes"  # Async eviction (non-blocking)
+      lazyfreeServerDel: "yes"
+      lazyfreeLazyExpire: "yes"
+      
+      # Network & Connection - Shorter timeouts for cache
+      maxclients: 20000
+      tcpBacklog: 511
+      timeout: 120  # 2 minutes (shorter for cache)
+      tcpKeepalive: 300
+      hz: 10
+      
+      # Replication - Less critical for cache
+      replBacklogSize: "64mb"  # Smaller backlog (cache less critical)
+      replBacklogTtl: 600
+      minReplicasToWrite: 0
+      minReplicasMaxLag: 10
+      
+      # Performance
+      activeExpireEffort: 3  # More aggressive TTL expiration
+    
+    resources:
+      requests:
+        storage: "30Gi"  # Smaller - cache is ephemeral
+        cpu: "1"
+        memory: "6Gi"
+      limits:
+        cpu: "1"
+        memory: "8Gi"
+
+  # Redis Controller (HA Failover)
+  RedisController:
+    enabled: "false"
+    runAsSidecar: "true"
+    image: python:3.11-slim
+    replicas: 1
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "200Mi"
+      limits:
+        cpu: "100m"
+        memory: "200Mi"

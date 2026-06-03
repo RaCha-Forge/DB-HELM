@@ -1,0 +1,78 @@
+{{- if and (eq .Values.services.RedisCache.enabled "true") (eq .Values.services.ReplicationInitJob.enabled "true") }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redis-cache-replication-init
+  namespace: {{ .Release.Namespace }}
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: init
+          image: {{ .Values.services.ReplicationInitJob.image | default "redis/redis-stack-server:latest" }}
+          command: ["/bin/sh", "-c"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-cache-secret
+                  key: redis-password
+            - name: REPLICA_COUNT
+              value: {{ .Values.redis.replicaCount | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.services.RedisCache.port | quote }}
+          args:
+            - |
+              set -euo pipefail
+              PRIMARY_HOST="redis-cache-0-0.redis-cache-0.{{ .Release.Namespace }}.svc.cluster.local"
+              SERVICE_HOST="redis-cache.{{ .Release.Namespace }}.svc.cluster.local"
+              REPLICA_COUNT="{{ .Values.redis.replicaCount }}"
+              PORT="{{ .Values.services.RedisCache.port }}"
+              echo "Waiting for Redis primary (redis-cache-0-0) to be ready..."
+              for i in $(seq 1 90); do
+                if redis-cli -h "$PRIMARY_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning ping >/dev/null 2>&1; then
+                  echo "Primary is ready"; break; fi
+                sleep 2
+                if [ "$i" -eq 90 ]; then echo "Primary not ready after wait"; exit 1; fi
+              done
+              echo "Waiting for all Redis replicas to be ready..."
+              for i in $(seq 1 $REPLICA_COUNT); do
+                REPLICA_HOST="redis-cache-${i}-0.redis-cache-${i}.{{ .Release.Namespace }}.svc.cluster.local"
+                echo "Waiting for replica redis-cache-${i}-0 at $REPLICA_HOST..."
+                for attempt in $(seq 1 90); do
+                  if nslookup "$REPLICA_HOST" >/dev/null 2>&1; then
+                    echo "  DNS resolved for redis-cache-${i}-0"
+                    break
+                  fi
+                  sleep 2
+                  if [ "$attempt" -eq 90 ]; then
+                    echo "  ERROR: DNS failed for redis-cache-${i}-0 after 3 minutes"
+                    exit 1
+                  fi
+                done
+                for attempt in $(seq 1 90); do
+                  if redis-cli -h "$REPLICA_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning ping >/dev/null 2>&1; then
+                    echo "  ✓ redis-cache-${i}-0 is ready"
+                    break
+                  fi
+                  sleep 2
+                  if [ "$attempt" -eq 90 ]; then
+                    echo "  ERROR: redis-cache-${i}-0 not ready after 3 minutes"
+                    exit 1
+                  fi
+                done
+              done
+              echo "Configuring replication on all replicas..."
+              for i in $(seq 1 $REPLICA_COUNT); do
+                REPLICA_HOST="redis-cache-${i}-0.redis-cache-${i}.{{ .Release.Namespace }}.svc.cluster.local"
+                echo "Configuring replica redis-cache-${i}-0: $REPLICA_HOST"
+                echo "Setting up replication on redis-cache-${i}-0 to follow service endpoint..."
+                redis-cli -h "$REPLICA_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning \
+                  REPLICAOF "$SERVICE_HOST" "$PORT" || {
+                  echo "ERROR: Failed to configure replication on redis-cache-${i}-0"; exit 1; }
+                echo "✔ redis-cache-${i}-0 configured to replicate from $SERVICE_HOST"
+              done
+              echo "✅ All Redis replicas configured successfully"
+{{- end }}

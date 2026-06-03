@@ -1,0 +1,135 @@
+# ===========================
+# Redis DB Helm Chart Values
+# Optimized for: Critical Data Storage, Persistent Database
+# Strategy: Maximum durability, no eviction, aggressive persistence
+# ===========================
+
+# Override default names (leave empty to use chart defaults)
+nameOverride: "redis-db"
+fullnameOverride: ""
+
+# Redis configuration
+redis:
+  replicaCount: 1
+  promotableReplicas: "0"
+
+# RBAC configuration
+serviceAccount:
+  create: true
+  name: ""  # Auto-generated: redis-db-failover-sa
+
+rbac:
+  create: true
+  roleName: ""  # Auto-generated: redis-db-failover-role
+  roleBindingName: ""  # Auto-generated: redis-db-failover-rb
+
+# ConfigMap configuration
+configMap:
+  name: ""  # Auto-generated: redis-db-ha-scripts
+
+# Secret configuration
+secrets:
+  name: ""  # Auto-generated: redis-db-secret
+  redisPassword: "Redis@password"
+
+# Job configuration
+job:
+  name: ""  # Auto-generated: redis-db-replication-init
+
+# Service configuration
+service:
+  name: ""  # Auto-generated: redis-db
+
+# Lease configuration
+lease:
+  name: ""  # Auto-generated: redis-db-ha-controller-lease
+
+# Image pull secret configuration
+imagePullSecret:
+  enabled: "false"
+  value: ecr-secret
+
+# Image pull policy
+imagePullPolicy: IfNotPresent
+
+# Storage class configuration
+storageClass:
+  name: "gp3"
+
+# Service configuration
+services:
+  # Replication Init Job
+  ReplicationInitJob:
+    enabled: "true"
+    image: redis:7-alpine
+
+  # Redis DB Configuration - OPTIMIZED FOR CRITICAL DATABASE
+  RedisDB:
+    enabled: "true"
+    image: cgr.dev/chainguard/redis:latest
+    port: 6002
+    
+    # DATABASE-OPTIMIZED REDIS CONFIGURATION
+    config:
+      # Memory Management - NEVER evict data
+      maxmemory: "7gb"
+      maxmemoryPolicy: "noeviction"  # Return error when full (protect data integrity)
+      
+      # Aggressive Persistence - ZERO data loss
+      appendonly: "yes"
+      appendfilename: "appendonly.aof"
+      appendfsync: "always"  # Fsync EVERY write (safest, slower)
+      noAppendfsyncOnRewrite: "no"
+      autoAofRewritePercentage: 100
+      autoAofRewriteMinSize: "64mb"
+      aofUseRdbPreamble: "yes"  # Hybrid persistence
+      
+      # Aggressive RDB Snapshots
+      save: ""  # Very frequent snapshots
+      stopWritesOnBgsaveError: "yes"  # Stop writes if snapshot fails
+      rdbcompression: "yes"
+      rdbchecksum: "yes"
+      
+      # Slow but Safe Settings
+      lazyfreeMemoryEviction: "no"  # Synchronous (slower but safer)
+      activedefrag: "no"  # Prevent latency spikes
+      
+      # Network & Connection - Longer timeouts for DB
+      maxclients: 5000  # Lower (DB operations slower)
+      tcpBacklog: 511
+      timeout: 600  # 10 minutes (long DB queries)
+      tcpKeepalive: 300
+      hz: 10
+      
+      # Replication - Critical for DB
+      replBacklogSize: "512mb"  # Large backlog (critical data)
+      replBacklogTtl: 3600  # 1 hour
+      minReplicasToWrite: 0  # Standalone: allow writes without replicas
+      minReplicasMaxLag: 5  # Tight lag requirement (5s)
+      replDisklessSync: "no"  # Use disk (safer)
+      
+      # Memory & Expiration
+      activeExpireEffort: 1  # Minimal expiration (preserve data)
+    
+    resources:
+      requests:
+        storage: "15Gi"  # Large persistent storage
+        cpu: "1"
+        memory: "1Gi"
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+
+  # Redis Controller (HA Failover)
+  RedisController:
+    enabled: "true"
+    runAsSidecar: "true"
+    image: python:3.11-slim
+    replicas: 1
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "200Mi"
+      limits:
+        cpu: "100m"
+        memory: "200Mi"

@@ -1,0 +1,21 @@
+{{- if eq .Values.services.RedisController.enabled "true" }}
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "redis-ts.roleName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redis-ts.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/label"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+{{- end }}
+{{- end }}

@@ -1,0 +1,90 @@
+# Image configuration
+image:
+  registry: 543458926801.dkr.ecr.ap-south-1.amazonaws.com
+  repository: fyno/mongo
+  tag: latest
+  pullPolicy: IfNotPresent
+  pullSecret:
+    enabled: false
+    name: ecr-secret
+
+# MongoDB replica set configuration
+replicaSet:
+  name: rs0
+  port: 28128
+
+# MongoDB cluster topology
+topology:
+  mongoNodes: 1      # Number of MongoDB data-bearing nodes
+  arbiterNodes: 0    # Number of arbiter nodes (voting only, no data)
+
+# Storage configuration
+storageClass:
+  name: gp3
+
+# MongoDB data nodes configuration
+mongodb:
+  enabled: true
+  serviceName: mongo-datanode  # Base name: will create mongo-datanode-0-0, mongo-datanode-1-0, mongo-datanode-2-0, etc.
+  resources:
+    requests:
+      storage: 50Gi
+      cpu: 2
+      memory: 4Gi
+    limits:
+      cpu: 2
+      memory: 6Gi
+  volumeName: mongo-data
+  terminationGracePeriodSeconds: 30
+
+# Arbiter configuration (for voting in replica set elections)
+arbiter:
+  enabled: false
+  serviceName: mongo-arbiter  # Base name: will create mongo-arbiter-0-0, mongo-arbiter-1-0, etc.
+  resources:
+    requests:
+      storage: 5Gi
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+  volumeName: arbiter-data
+  terminationGracePeriodSeconds: 10
+
+# Service for accessing MongoDB (automatically points to current PRIMARY)
+service:
+  name: mongo
+  type: ClusterIP
+  port: 28128
+
+# Replica set initialization job
+initJob:
+  enabled: false
+  name: mongo-rs-init
+  ttlSecondsAfterFinished: 60
+  restartPolicy: OnFailure
+  user:
+    name: mongouser
+    password: "Mongo@password"
+    database: admin
+    role: root
+  waitTime:
+    initial: 10
+    replicaInit: 20
+    primaryElection: 30
+
+# HA Controller for automatic primary detection and service label sync
+haController:
+  enabled: false
+  image: python:3.11-slim
+  checkInterval: 2  # give higher interval to reduce resource consumption
+  serviceAccountName: mongo-ha-controller-sa  # Can be overridden
+  roleName: mongo-ha-controller            # Can be overridden
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

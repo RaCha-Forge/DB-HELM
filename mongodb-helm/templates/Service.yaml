@@ -1,0 +1,51 @@
+{{- if .Values.mongodb.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.mongodb.serviceName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mongo
+spec:
+  clusterIP: None
+  ports:
+    - port: {{ .Values.replicaSet.port }}
+      name: mongodb
+  selector:
+    app: mongo
+{{- end }}
+---
+{{- if .Values.arbiter.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.arbiter.serviceName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mongo-arbiter
+spec:
+  clusterIP: None
+  ports:
+    - port: {{ .Values.replicaSet.port }}
+      name: mongodb
+  selector:
+    app: mongo-arbiter
+{{- end }}
+---
+# Main service - dynamically points to current PRIMARY
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.service.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mongo
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.replicaSet.port }}
+      name: mongodb
+  selector:
+    app: mongo
+    mongo-index: "0"  # Will be dynamically updated by HA controller

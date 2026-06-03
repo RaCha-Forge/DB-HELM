@@ -1,0 +1,126 @@
+{{- if .Values.haController.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongo-ha-controller
+  namespace: {{ .Release.Namespace }}
+data:
+  mongo_ha_controller.py: |
+    #!/usr/bin/env python3
+    import os
+    import time
+    from pymongo import MongoClient
+    from kubernetes import client, config
+    
+    # Load Kubernetes config
+    try:
+        config.load_incluster_config()
+    except:
+        config.load_kube_config()
+    
+    k8s_core = client.CoreV1Api()
+    
+    # Environment variables
+    NAMESPACE = os.getenv("NAMESPACE", "mongo")
+    SERVICE_NAME = os.getenv("SERVICE_NAME", "mongo")
+    PORT = int(os.getenv("PORT", "27017"))
+    CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "10"))
+    POD_SELECTOR = os.getenv("POD_SELECTOR", "app=mongo")
+    
+    def log(message):
+        """Lightweight logging"""
+        print(f"[{time.strftime('%H:%M:%S')}] {message}", flush=True)
+    
+    def get_mongo_pods():
+        """Get all MongoDB pods in namespace"""
+        try:
+            pods = k8s_core.list_namespaced_pod(
+                namespace=NAMESPACE,
+                label_selector=POD_SELECTOR
+            )
+            return [(pod.metadata.name, pod.status.pod_ip) for pod in pods.items if pod.status.pod_ip]
+        except Exception as e:
+            log(f"❌ Failed to list pods: {e}")
+            return []
+    
+    def check_primary(pod_ip):
+        """Check if pod is PRIMARY"""
+        try:
+            client_conn = MongoClient(
+                pod_ip,
+                port=PORT,
+                serverSelectionTimeoutMS=2000,
+                connectTimeoutMS=2000,
+                directConnection=True
+            )
+            result = client_conn.admin.command("isMaster")
+            client_conn.close()
+            return result.get("ismaster", False)
+        except:
+            return False
+    
+    def get_pod_labels(pod_name):
+        """Get pod labels"""
+        try:
+            pod = k8s_core.read_namespaced_pod(pod_name, NAMESPACE)
+            return dict(pod.metadata.labels) if pod.metadata.labels else {}
+        except:
+            return {}
+    
+    def update_service_selector(pod_labels):
+        """Update service selector"""
+        try:
+            service = k8s_core.read_namespaced_service(SERVICE_NAME, NAMESPACE)
+            current = dict(service.spec.selector) if service.spec.selector else {}
+            
+            if current != pod_labels:
+                service.spec.selector = pod_labels
+                k8s_core.patch_namespaced_service(SERVICE_NAME, NAMESPACE, service)
+                return True
+            return False
+        except Exception as e:
+            log(f"❌ Update failed: {e}")
+            return False
+    
+    def main():
+        log("🚀 MongoDB HA Controller started")
+        log(f"📍 Namespace: {NAMESPACE} | Service: {SERVICE_NAME} | Interval: {CHECK_INTERVAL}s")
+        
+        while True:
+            try:
+                # Discover all MongoDB pods
+                pods = get_mongo_pods()
+                
+                if not pods:
+                    log("⚠️  No MongoDB pods found")
+                    time.sleep(CHECK_INTERVAL)
+                    continue
+                
+                # Find PRIMARY
+                primary_pod = None
+                for pod_name, pod_ip in pods:
+                    if check_primary(pod_ip):
+                        primary_pod = pod_name
+                        break
+                
+                if primary_pod:
+                    # Get PRIMARY pod labels
+                    pod_labels = get_pod_labels(primary_pod)
+                    
+                    if pod_labels:
+                        # Update service
+                        if update_service_selector(pod_labels):
+                            log(f"✅ Service updated → {primary_pod}")
+                    else:
+                        log(f"⚠️  No labels found for {primary_pod}")
+                else:
+                    log("⚠️  No PRIMARY found")
+                
+            except Exception as e:
+                log(f"❌ Error: {e}")
+            
+            time.sleep(CHECK_INTERVAL)
+    
+    if __name__ == "__main__":
+        main()
+{{- end }}

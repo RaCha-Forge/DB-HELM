@@ -1,0 +1,9 @@
+{{- if eq .Values.services.RedisController.enabled "true" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-ts-ha-scripts
+  namespace: {{ .Release.Namespace }}
+data:
+  redis_ha_controller.py: {{ .Files.Get "files/redis_ha_controller.py" | quote }}
+{{- end }}

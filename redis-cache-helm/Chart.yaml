@@ -1,0 +1,6 @@
+apiVersion: v2
+name: redis-cache
+description: Redis Cache with HA Failover - Cache-optimized configuration with allkeys-lru eviction
+type: application
+version: 7.4.0
+appVersion: "7.4"

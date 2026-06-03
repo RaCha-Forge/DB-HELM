@@ -1,0 +1,6 @@
+apiVersion: v2
+name: redis-db
+description: Redis DB with HA Failover - Database-optimized configuration with noeviction policy
+type: application
+version: 7.4.0
+appVersion: "7.4"

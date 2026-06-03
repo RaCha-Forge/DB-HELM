@@ -1,0 +1,169 @@
+{{- if .Values.mongodb.enabled }}
+{{- range $index := until (int .Values.topology.mongoNodes) }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $.Values.mongodb.serviceName }}-{{ $index }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  serviceName: {{ $.Values.mongodb.serviceName }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo
+      mongo-index: {{ $index | quote }}
+  template:
+    metadata:
+      labels:
+        app: mongo
+        mongo-index: {{ $index | quote }}
+    spec:
+      # securityContext:
+      #   fsGroup: 65532
+      #   runAsUser: 65532
+      #   runAsGroup: 65532
+      #   runAsNonRoot: true
+      {{- if $.Values.haController.enabled }}
+      serviceAccountName: {{ include "mongodb.serviceAccountName" $ }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ $.Values.mongodb.terminationGracePeriodSeconds }}
+      containers:
+        - name: mongo
+          image: {{ $.Values.image.registry }}/{{ $.Values.image.repository }}:{{ $.Values.image.tag }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          # command: ["mongod"]
+          args:
+            - "--replSet={{ $.Values.replicaSet.name }}"
+            - "--bind_ip_all"
+            - "--port={{ $.Values.replicaSet.port }}"
+          ports:
+            - containerPort: {{ $.Values.replicaSet.port }}
+              name: mongodb
+          resources:
+            limits:
+              cpu: {{ $.Values.mongodb.resources.limits.cpu | quote }}
+              memory: {{ $.Values.mongodb.resources.limits.memory }}
+            requests:
+              cpu: {{ $.Values.mongodb.resources.requests.cpu | quote }}
+              memory: {{ $.Values.mongodb.resources.requests.memory }}
+          volumeMounts:
+            - name: {{ $.Values.mongodb.volumeName }}
+              mountPath: /data/db
+        
+        {{- if $.Values.haController.enabled }}
+        - name: ha-controller
+          image: {{ $.Values.haController.image }}
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              pip install --no-cache-dir pymongo kubernetes > /dev/null 2>&1
+              python3 /scripts/mongo_ha_controller.py
+          env:
+            - name: NAMESPACE
+              value: {{ $.Release.Namespace | quote }}
+            - name: SERVICE_NAME
+              value: {{ $.Values.service.name | quote }}
+            - name: REPLICA_SET_NAME
+              value: {{ $.Values.replicaSet.name | quote }}
+            - name: PORT
+              value: {{ $.Values.replicaSet.port | quote }}
+            - name: CHECK_INTERVAL
+              value: {{ $.Values.haController.checkInterval | quote }}
+            - name: POD_SELECTOR
+              value: "app=mongo"
+          resources:
+            requests:
+              cpu: {{ $.Values.haController.resources.requests.cpu | quote }}
+              memory: {{ $.Values.haController.resources.requests.memory }}
+            limits:
+              cpu: {{ $.Values.haController.resources.limits.cpu | quote }}
+              memory: {{ $.Values.haController.resources.limits.memory }}
+          volumeMounts:
+            - name: ha-controller-script
+              mountPath: /scripts
+        {{- end }}
+      {{- if $.Values.image.pullSecret.enabled }}
+      imagePullSecrets:
+      - name: {{ $.Values.image.pullSecret.name }}
+      {{- end }}
+      volumes:
+        - name: ha-controller-script
+          configMap:
+            name: mongo-ha-controller
+  volumeClaimTemplates:
+    - metadata:
+        name: {{ $.Values.mongodb.volumeName }}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ $.Values.storageClass.name }}
+        resources:
+          requests:
+            storage: {{ $.Values.mongodb.resources.requests.storage }}
+{{- end }}
+{{- end }}
+---
+{{- if .Values.arbiter.enabled }}
+{{- range $index := until (int .Values.topology.arbiterNodes) }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $.Values.arbiter.serviceName }}-{{ $index }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  serviceName: {{ $.Values.arbiter.serviceName }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongo-arbiter
+      arbiter-index: {{ $index | quote }}
+  template:
+    metadata:
+      labels:
+        app: mongo-arbiter
+        arbiter-index: {{ $index | quote }}
+    spec:
+      # securityContext:
+      #   fsGroup: 65532
+      #   runAsUser: 65532
+      #   runAsGroup: 65532
+      #   runAsNonRoot: true
+      terminationGracePeriodSeconds: {{ $.Values.arbiter.terminationGracePeriodSeconds }}
+      containers:
+        - name: mongo-arbiter
+          image: {{ $.Values.image.registry }}/{{ $.Values.image.repository }}:{{ $.Values.image.tag }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          # command: ["mongod"]
+          args:
+            - "--replSet={{ $.Values.replicaSet.name }}"
+            - "--bind_ip_all"
+            - "--port={{ $.Values.replicaSet.port }}"
+          ports:
+            - containerPort: {{ $.Values.replicaSet.port }}
+              name: mongodb
+          resources:
+            limits:
+              cpu: {{ $.Values.arbiter.resources.limits.cpu | quote }}
+              memory: {{ $.Values.arbiter.resources.limits.memory }}
+            requests:
+              cpu: {{ $.Values.arbiter.resources.requests.cpu | quote }}
+              memory: {{ $.Values.arbiter.resources.requests.memory }}
+          volumeMounts:
+            - name: {{ $.Values.arbiter.volumeName }}
+              mountPath: /data/db
+      {{- if $.Values.image.pullSecret.enabled }}
+      imagePullSecrets:
+      - name: {{ $.Values.image.pullSecret.name }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: {{ $.Values.arbiter.volumeName }}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ $.Values.storageClass.name }}
+        resources:
+          requests:
+            storage: {{ $.Values.arbiter.resources.requests.storage }}
+{{- end }}
+{{- end }}

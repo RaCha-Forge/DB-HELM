@@ -1,0 +1,103 @@
+{{- if .Values.initJob.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.initJob.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  ttlSecondsAfterFinished: {{ .Values.initJob.ttlSecondsAfterFinished }}
+  template:
+    spec:
+      restartPolicy: {{ .Values.initJob.restartPolicy }}
+      containers:
+        - name: mongo-init
+          image: {{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              echo "🔍 Waiting for all MongoDB pods to be ready..."
+              sleep {{ .Values.initJob.waitTime.initial }}
+              
+              # Wait for all MongoDB data nodes
+              {{- range $index := until (int .Values.topology.mongoNodes) }}
+              echo "⏳ Checking {{ $.Values.mongodb.serviceName }}-{{ $index }}-0..."
+              until mongosh --host {{ $.Values.mongodb.serviceName }}-{{ $index }}-0.{{ $.Values.mongodb.serviceName }}.{{ $.Release.Namespace }}.svc.cluster.local:{{ $.Values.replicaSet.port }} --eval "db.adminCommand('ping')" > /dev/null 2>&1; do
+                echo "  Waiting for {{ $.Values.mongodb.serviceName }}-{{ $index }}-0..."
+                sleep 5
+              done
+              echo "✅ {{ $.Values.mongodb.serviceName }}-{{ $index }}-0 is ready"
+              {{- end }}
+              
+              # Wait for all arbiter nodes
+              {{- if .Values.arbiter.enabled }}
+              {{- range $index := until (int .Values.topology.arbiterNodes) }}
+              echo "⏳ Checking {{ $.Values.arbiter.serviceName }}-{{ $index }}-0..."
+              until mongosh --host {{ $.Values.arbiter.serviceName }}-{{ $index }}-0.{{ $.Values.arbiter.serviceName }}.{{ $.Release.Namespace }}.svc.cluster.local:{{ $.Values.replicaSet.port }} --eval "db.adminCommand('ping')" > /dev/null 2>&1; do
+                echo "  Waiting for {{ $.Values.arbiter.serviceName }}-{{ $index }}-0..."
+                sleep 5
+              done
+              echo "✅ {{ $.Values.arbiter.serviceName }}-{{ $index }}-0 is ready"
+              {{- end }}
+              {{- end }}
+              
+              echo "🎉 All pods are ready!"
+              
+              # Check if replica set already initialized
+              echo "🔍 Checking replica set status..."
+              if mongosh --host {{ .Values.mongodb.serviceName }}-0-0.{{ .Values.mongodb.serviceName }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.replicaSet.port }} --eval "rs.status()" 2>/dev/null | grep -q "PRIMARY"; then
+                echo "ℹ️  Replica set already active, skipping init"
+                exit 0
+              fi
+              
+              echo "🚀 Initiating replica set..."
+              sleep {{ .Values.initJob.waitTime.replicaInit }}
+              
+              # Build members array dynamically
+              MEMBERS="["
+              {{- $memberID := 0 }}
+              {{- range $index := until (int .Values.topology.mongoNodes) }}
+              MEMBERS="${MEMBERS}{ _id: {{ $memberID }}, host: '{{ $.Values.mongodb.serviceName }}-{{ $index }}-0.{{ $.Values.mongodb.serviceName }}.{{ $.Release.Namespace }}.svc.cluster.local:{{ $.Values.replicaSet.port }}' },"
+              {{- $memberID = add1 $memberID }}
+              {{- end }}
+              {{- if .Values.arbiter.enabled }}
+              {{- range $index := until (int .Values.topology.arbiterNodes) }}
+              MEMBERS="${MEMBERS}{ _id: {{ $memberID }}, host: '{{ $.Values.arbiter.serviceName }}-{{ $index }}-0.{{ $.Values.arbiter.serviceName }}.{{ $.Release.Namespace }}.svc.cluster.local:{{ $.Values.replicaSet.port }}', arbiterOnly: true },"
+              {{- $memberID = add1 $memberID }}
+              {{- end }}
+              {{- end }}
+              MEMBERS="${MEMBERS%,}]"
+              
+              echo "📝 Replica set members: ${MEMBERS}"
+              
+              mongosh --host {{ .Values.mongodb.serviceName }}-0-0.{{ .Values.mongodb.serviceName }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.replicaSet.port }} --eval "
+                rs.initiate({
+                  _id: '{{ .Values.replicaSet.name }}',
+                  members: ${MEMBERS}
+                })
+              "
+              echo "✅ Replica set initiated!"
+              echo "⏳ Waiting {{ .Values.initJob.waitTime.primaryElection }} seconds for PRIMARY election..."
+              sleep {{ .Values.initJob.waitTime.primaryElection }}
+
+              echo "👤 Creating root user ({{ .Values.initJob.user.name }})..."
+              mongosh --quiet --host {{ .Values.mongodb.serviceName }}-0-0.{{ .Values.mongodb.serviceName }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.replicaSet.port }} --eval '
+                use("{{ .Values.initJob.user.database }}");
+                if (!db.getUser("{{ .Values.initJob.user.name }}")) {
+                  print("🧩 Creating new user...");
+                  db.createUser({
+                    user: "{{ .Values.initJob.user.name }}",
+                    pwd: "{{ .Values.initJob.user.password }}",
+                    roles: [{ role: "{{ .Values.initJob.user.role }}", db: "{{ .Values.initJob.user.database }}" }]
+                  });
+                  print("✅ Created root user {{ .Values.initJob.user.name }}");
+                } else {
+                  print("ℹ️ User already exists, skipping");
+                }
+              '
+              echo "✅ Replica Set and User Initialization Complete!"
+      {{- if .Values.image.pullSecret.enabled }}
+      imagePullSecrets:
+      - name: {{ .Values.image.pullSecret.name }}
+      {{- end }}
+{{- end }}

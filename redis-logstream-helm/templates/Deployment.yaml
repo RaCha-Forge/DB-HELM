@@ -1,0 +1,122 @@
+{{- if and (eq .Values.services.RedisController.enabled "true") (eq .Values.services.RedisController.runAsSidecar "false") }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-ha-controller
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.services.RedisController.replicas }}
+  selector:
+    matchLabels:
+      app: redis-ha-controller
+  template:
+    metadata:
+      labels:
+        app: redis-ha-controller
+    spec:
+      serviceAccountName: redis-failover-sa
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if eq .Values.imagePullSecret.enabled "true" }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret.value }}
+      {{- end }}
+      
+      # --------------------------
+      # INIT CONTAINER
+      # --------------------------
+      initContainers:
+        - name: install-deps
+          image: {{ .Values.services.RedisController.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              pip install --no-cache-dir redis kubernetes --target=/deps
+          volumeMounts:
+            - name: deps
+              mountPath: /deps
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "100m"
+              memory: "256Mi"
+
+      # --------------------------
+      # MAIN CONTROLLER
+      # --------------------------
+      containers:
+        - name: ha-controller
+          image: {{ .Values.services.RedisController.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              python /app/redis_ha_controller.py
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: PRIMARY_HOST
+              value: "redis-queue-0-0.redis-queue-0"
+            - name: SERVICE_NAME
+              value: "redis-queue"
+            - name: REDIS_PORT
+              value: {{ .Values.services.RedisQueue.port | quote }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-queue-secret
+                  key: redis-password
+            - name: REPLICA_COUNT
+              value: {{ .Values.redis.replicaCount | quote }}
+            - name: PROMOTABLE_REPLICAS
+              value: {{ .Values.redis.promotableReplicas | quote }}
+            - name: LEADER_ELECTION_ENABLED
+              value: "true"
+            - name: LEASE_NAME
+              value: "redis-ha-controller-lease"
+            - name: PYTHONPATH
+              value: "/deps"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          volumeMounts:
+            - name: script
+              mountPath: /app/redis_ha_controller.py
+              subPath: redis_ha_controller.py
+            - name: deps
+              mountPath: /deps
+          resources:
+            requests:
+              cpu: {{ .Values.services.RedisController.resources.requests.cpu | quote }}
+              memory: {{ .Values.services.RedisController.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.services.RedisController.resources.limits.cpu | quote }}
+              memory: {{ .Values.services.RedisController.resources.limits.memory | quote }}
+
+      # --------------------------
+      # VOLUMES
+      # --------------------------
+      volumes:
+        - name: script
+          configMap:
+            name: redis-ha-scripts
+        - name: deps
+          emptyDir: {}
+
+{{- end }}

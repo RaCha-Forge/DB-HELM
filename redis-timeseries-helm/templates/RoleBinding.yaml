@@ -1,0 +1,19 @@
+{{- if eq .Values.services.RedisController.enabled "true" }}
+{{- if .Values.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "redis-ts.roleBindingName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "redis-ts.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "redis-ts.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  apiGroup: rbac.authorization.k8s.io
+  name: {{ include "redis-ts.roleName" . }}
+{{- end }}
+{{- end }}

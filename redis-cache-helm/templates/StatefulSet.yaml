@@ -1,0 +1,541 @@
+{{- if eq .Values.services.RedisCache.enabled "true" }}
+
+# ===========================
+# PRIMARY REDIS STATEFULSET (redis-cache-0)
+# ===========================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cache-0
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: redis-cache
+    redis-index: "0"
+spec:
+  serviceName: redis-cache-0
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-cache
+      redis-index: "0"
+  template:
+    metadata:
+      labels:
+        app: redis-cache
+        role: primary
+        redis-index: "0"
+    spec:
+      securityContext:
+        fsGroup: 65532
+        runAsUser: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+{{- if and (eq .Values.services.RedisController.enabled "true") (eq .Values.services.RedisController.runAsSidecar "true") }}
+      serviceAccountName: {{ include "redis-cache.serviceAccountName" $ }}
+{{- end }}
+      {{- if eq .Values.imagePullSecret.enabled "true" }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret.value }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - redis-cache
+                topologyKey: kubernetes.io/hostname
+
+{{- if and (eq .Values.services.RedisController.enabled "true") (eq .Values.services.RedisController.runAsSidecar "true") }}
+      initContainers:
+        - name: install-deps
+          image: {{ .Values.services.RedisController.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              pip install --no-cache-dir redis kubernetes --target=/deps
+          volumeMounts:
+            - name: deps
+              mountPath: /deps
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "100m"
+              memory: "256Mi"
+{{- end }}
+
+      containers:
+        - name: redis
+          image: {{ .Values.services.RedisCache.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command: ["redis-server"]
+          args:
+            - --port
+            - {{ .Values.services.RedisCache.port | quote }}
+            - --protected-mode
+            - "no"
+            - --dir
+            - /data
+            # Authentication
+            - --requirepass
+            - "$(REDIS_PASSWORD)"
+            - --masterauth
+            - "$(REDIS_PASSWORD)"
+            # CACHE OPTIMIZED PERSISTENCE - Minimal for Speed
+            - --appendonly
+            - {{ .Values.services.RedisCache.config.appendonly | quote }}
+            - --save
+            - {{ .Values.services.RedisCache.config.save | quote }}
+            # Memory Management - Cache Optimized (evict keys with TTL)
+            - --maxmemory
+            - {{ .Values.services.RedisCache.config.maxmemory | quote }}
+            - --maxmemory-policy
+            - {{ .Values.services.RedisCache.config.maxmemoryPolicy | quote }}
+            - --maxmemory-samples
+            - {{ .Values.services.RedisCache.config.maxmemorySamples | quote }}
+            # Connection Limits
+            # - --maxclients
+            # - {{ .Values.services.RedisCache.config.maxclients | quote }}
+            # - --tcp-backlog
+            # - {{ .Values.services.RedisCache.config.tcpBacklog | quote }}
+            # - --timeout
+            # - {{ .Values.services.RedisCache.config.timeout | quote }}
+            # - --tcp-keepalive
+            # - {{ .Values.services.RedisCache.config.tcpKeepalive | quote }}
+            # Performance
+            - --hz
+            - {{ .Values.services.RedisCache.config.hz | quote }}
+            # Replication - Cache Optimized (smaller backlog)
+            - --repl-backlog-size
+            - {{ .Values.services.RedisCache.config.replBacklogSize | quote }}
+            - --repl-backlog-ttl
+            - {{ .Values.services.RedisCache.config.replBacklogTtl | quote }}
+            - --min-replicas-to-write
+            - {{ .Values.services.RedisCache.config.minReplicasToWrite | quote }}
+            - --min-replicas-max-lag
+            - {{ .Values.services.RedisCache.config.minReplicasMaxLag | quote }}
+            # Cache-Specific Settings - Fast Eviction
+            - --lazyfree-lazy-eviction
+            - {{ .Values.services.RedisCache.config.lazyfreeMemoryEviction | quote }}
+            - --lazyfree-lazy-server-del
+            - {{ .Values.services.RedisCache.config.lazyfreeServerDel | quote }}
+            - --lazyfree-lazy-expire
+            - {{ .Values.services.RedisCache.config.lazyfreeLazyExpire | quote }}
+            - --activedefrag
+            - {{ .Values.services.RedisCache.config.activedefrag | quote }}
+            - --active-expire-effort
+            - {{ .Values.services.RedisCache.config.activeExpireEffort | quote }}
+            - --loadmodule 
+            - /usr/local/lib/redis/modules/rejson.so
+            - --loadmodule
+            - /usr/local/lib/redis/modules/redistimeseries.so
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-cache-secret
+                  key: redis-password
+            - name: REDIS_PORT
+              value: {{ .Values.services.RedisCache.port | quote }}
+          ports:
+            - containerPort: {{ .Values.services.RedisCache.port }}
+              name: redis
+          resources:
+            requests:
+              cpu: {{ .Values.services.RedisCache.resources.requests.cpu | quote }}
+              memory: {{ .Values.services.RedisCache.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.services.RedisCache.resources.limits.cpu | quote }}
+              memory: {{ .Values.services.RedisCache.resources.limits.memory | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -p {{ .Values.services.RedisCache.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -p {{ .Values.services.RedisCache.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  redis-cli -p {{ .Values.services.RedisCache.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+{{- if and (eq .Values.services.RedisController.enabled "true") (eq .Values.services.RedisController.runAsSidecar "true") }}
+        # HA Controller Sidecar
+        - name: ha-controller
+          image: {{ .Values.services.RedisController.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              python /app/redis_ha_controller.py
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: PRIMARY_HOST
+              value: "redis-cache-0-0.redis-cache-0"
+            - name: SERVICE_NAME
+              value: "redis-cache"
+            - name: REDIS_PORT
+              value: {{ .Values.services.RedisCache.port | quote }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-cache-secret
+                  key: redis-password
+            - name: REPLICA_COUNT
+              value: {{ .Values.redis.replicaCount | quote }}
+            - name: PROMOTABLE_REPLICAS
+              value: {{ .Values.redis.promotableReplicas | quote }}
+            - name: LEADER_ELECTION_ENABLED
+              value: "true"
+            - name: LEASE_NAME
+              value: "redis-cache-ha-controller-lease"
+            - name: PYTHONPATH
+              value: "/deps"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          volumeMounts:
+            - name: ha-scripts
+              mountPath: /app/redis_ha_controller.py
+              subPath: redis_ha_controller.py
+            - name: deps
+              mountPath: /deps
+          resources:
+            requests:
+              cpu: {{ .Values.services.RedisController.resources.requests.cpu | quote }}
+              memory: {{ .Values.services.RedisController.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.services.RedisController.resources.limits.cpu | quote }}
+              memory: {{ .Values.services.RedisController.resources.limits.memory | quote }}
+{{- end }}
+
+      volumes:
+{{- if and (eq .Values.services.RedisController.enabled "true") (eq .Values.services.RedisController.runAsSidecar "true") }}
+        - name: ha-scripts
+          configMap:
+            name: redis-cache-ha-scripts
+        - name: deps
+          emptyDir: {}
+{{- end }}
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.storageClass.name }}
+        resources:
+          requests:
+            storage: {{ .Values.services.RedisCache.resources.requests.storage }}
+
+---
+
+# ===========================
+# REPLICA REDIS STATEFULSETS (redis-cache-1, redis-cache-2, ...)
+# ===========================
+{{- range $index := until (int .Values.redis.replicaCount) }}
+{{- $replicaIndex := add $index 1 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cache-{{ $replicaIndex }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: redis-cache
+    redis-index: {{ $replicaIndex | quote }}
+spec:
+  serviceName: redis-cache-{{ $replicaIndex }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-cache
+      redis-index: {{ $replicaIndex | quote }}
+  template:
+    metadata:
+      labels:
+        app: redis-cache
+        role: replica
+        redis-index: {{ $replicaIndex | quote }}
+    spec:
+      securityContext:
+        fsGroup: 65532
+        runAsUser: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+{{- if and (eq $.Values.services.RedisController.enabled "true") (eq $.Values.services.RedisController.runAsSidecar "true") }}
+      serviceAccountName: {{ include "redis-cache.serviceAccountName" $ }}
+{{- end }}
+      {{- if eq $.Values.imagePullSecret.enabled "true" }}
+      imagePullSecrets:
+        - name: {{ $.Values.imagePullSecret.value }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - redis-cache
+                topologyKey: kubernetes.io/hostname
+
+{{- if and (eq $.Values.services.RedisController.enabled "true") (eq $.Values.services.RedisController.runAsSidecar "true") }}
+      initContainers:
+        - name: install-deps
+          image: {{ $.Values.services.RedisController.image }}
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              pip install --no-cache-dir redis kubernetes --target=/deps
+          volumeMounts:
+            - name: deps
+              mountPath: /deps
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "100m"
+              memory: "256Mi"
+{{- end }}
+
+      containers:
+        - name: redis
+          image: {{ $.Values.services.RedisCache.image }}
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          command: ["redis-server"]
+          args:
+            - --port
+            - {{ $.Values.services.RedisCache.port | quote }}
+            - --protected-mode
+            - "no"
+            - --dir
+            - /data
+            # Authentication
+            - --requirepass
+            - "$(REDIS_PASSWORD)"
+            - --masterauth
+            - "$(REDIS_PASSWORD)"
+            # CACHE OPTIMIZED PERSISTENCE - Minimal for Speed
+            - --appendonly
+            - {{ $.Values.services.RedisCache.config.appendonly | quote }}
+            - --save
+            - {{ $.Values.services.RedisCache.config.save | quote }}
+            # Memory Management - Cache Optimized (evict keys with TTL)
+            - --maxmemory
+            - {{ $.Values.services.RedisCache.config.maxmemory | quote }}
+            - --maxmemory-policy
+            - {{ $.Values.services.RedisCache.config.maxmemoryPolicy | quote }}
+            - --maxmemory-samples
+            - {{ $.Values.services.RedisCache.config.maxmemorySamples | quote }}
+            # Connection Limits
+            # - --maxclients
+            # - {{ $.Values.services.RedisCache.config.maxclients | quote }}
+            # - --tcp-backlog
+            # - {{ $.Values.services.RedisCache.config.tcpBacklog | quote }}
+            # - --timeout
+            # - {{ $.Values.services.RedisCache.config.timeout | quote }}
+            # - --tcp-keepalive
+            # - {{ $.Values.services.RedisCache.config.tcpKeepalive | quote }}
+            # Performance
+            - --hz
+            - {{ $.Values.services.RedisCache.config.hz | quote }}
+            # Replication - Cache Optimized (smaller backlog)
+            - --repl-backlog-size
+            - {{ $.Values.services.RedisCache.config.replBacklogSize | quote }}
+            - --repl-backlog-ttl
+            - {{ $.Values.services.RedisCache.config.replBacklogTtl | quote }}
+            - --min-replicas-to-write
+            - {{ $.Values.services.RedisCache.config.minReplicasToWrite | quote }}
+            - --min-replicas-max-lag
+            - {{ $.Values.services.RedisCache.config.minReplicasMaxLag | quote }}
+            # Cache-Specific Settings - Fast Eviction
+            - --lazyfree-lazy-eviction
+            - {{ $.Values.services.RedisCache.config.lazyfreeMemoryEviction | quote }}
+            - --lazyfree-lazy-server-del
+            - {{ $.Values.services.RedisCache.config.lazyfreeServerDel | quote }}
+            - --lazyfree-lazy-expire
+            - {{ $.Values.services.RedisCache.config.lazyfreeLazyExpire | quote }}
+            - --activedefrag
+            - {{ $.Values.services.RedisCache.config.activedefrag | quote }}
+            - --active-expire-effort
+            - {{ $.Values.services.RedisCache.config.activeExpireEffort | quote }}
+            - --loadmodule 
+            - /usr/local/lib/redis/modules/rejson.so
+            - --loadmodule
+            - /usr/local/lib/redis/modules/redistimeseries.so
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-cache-secret
+                  key: redis-password
+            - name: REDIS_PORT
+              value: {{ $.Values.services.RedisCache.port | quote }}
+          ports:
+            - containerPort: {{ $.Values.services.RedisCache.port }}
+              name: redis
+          resources:
+            requests:
+              cpu: {{ $.Values.services.RedisCache.resources.requests.cpu | quote }}
+              memory: {{ $.Values.services.RedisCache.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ $.Values.services.RedisCache.resources.limits.cpu | quote }}
+              memory: {{ $.Values.services.RedisCache.resources.limits.memory | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -p {{ $.Values.services.RedisCache.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -p {{ $.Values.services.RedisCache.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  redis-cli -p {{ $.Values.services.RedisCache.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+{{- if and (eq $.Values.services.RedisController.enabled "true") (eq $.Values.services.RedisController.runAsSidecar "true") }}
+        # HA Controller Sidecar
+        - name: ha-controller
+          image: {{ $.Values.services.RedisController.image }}
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              python /app/redis_ha_controller.py
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: PRIMARY_HOST
+              value: "redis-cache-0-0.redis-cache-0"
+            - name: SERVICE_NAME
+              value: "redis-cache"
+            - name: REDIS_PORT
+              value: {{ $.Values.services.RedisCache.port | quote }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-cache-secret
+                  key: redis-password
+            - name: REPLICA_COUNT
+              value: {{ $.Values.redis.replicaCount | quote }}
+            - name: PROMOTABLE_REPLICAS
+              value: {{ $.Values.redis.promotableReplicas | quote }}
+            - name: LEADER_ELECTION_ENABLED
+              value: "true"
+            - name: LEASE_NAME
+              value: "redis-cache-ha-controller-lease"
+            - name: PYTHONPATH
+              value: "/deps"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          volumeMounts:
+            - name: ha-scripts
+              mountPath: /app/redis_ha_controller.py
+              subPath: redis_ha_controller.py
+            - name: deps
+              mountPath: /deps
+          resources:
+            requests:
+              cpu: {{ $.Values.services.RedisController.resources.requests.cpu | quote }}
+              memory: {{ $.Values.services.RedisController.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ $.Values.services.RedisController.resources.limits.cpu | quote }}
+              memory: {{ $.Values.services.RedisController.resources.limits.memory | quote }}
+{{- end }}
+
+      volumes:
+{{- if and (eq $.Values.services.RedisController.enabled "true") (eq $.Values.services.RedisController.runAsSidecar "true") }}
+        - name: ha-scripts
+          configMap:
+            name: redis-cache-ha-scripts
+        - name: deps
+          emptyDir: {}
+{{- end }}
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ $.Values.storageClass.name }}
+        resources:
+          requests:
+            storage: {{ $.Values.services.RedisCache.resources.requests.storage }}
+{{- end }}
+
+{{- end }}

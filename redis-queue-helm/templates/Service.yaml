@@ -1,0 +1,64 @@
+{{- if eq .Values.services.RedisQueue.enabled "true" }}
+
+# ===========================
+# INDIVIDUAL HEADLESS SERVICES (redis-queue-0, redis-queue-1, ...)
+# ===========================
+
+# Primary headless service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-queue-0
+  namespace: {{ .Release.Namespace }}
+spec:
+  clusterIP: None
+  selector:
+    app: redis-queue
+    redis-index: "0"
+  ports:
+    - port: {{ .Values.services.RedisQueue.port }}
+      targetPort: {{ .Values.services.RedisQueue.port }}
+      name: redis
+
+---
+
+# Replica headless services
+{{- range $index := until (int .Values.redis.replicaCount) }}
+{{- $replicaIndex := add $index 1 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-queue-{{ $replicaIndex }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  clusterIP: None
+  selector:
+    app: redis-queue
+    redis-index: {{ $replicaIndex | quote }}
+  ports:
+    - port: {{ $.Values.services.RedisQueue.port }}
+      targetPort: {{ $.Values.services.RedisQueue.port }}
+      name: redis
+{{- end }}
+
+---
+
+# ===========================
+# LOAD BALANCER SERVICE (routes to all pods, client discovers master)
+# ===========================
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-queue
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: redis-queue
+  ports:
+    - port: {{ .Values.services.RedisQueue.port }}
+      targetPort: {{ .Values.services.RedisQueue.port }}
+      name: redis
+
+{{- end }}

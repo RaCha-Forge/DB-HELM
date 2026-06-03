@@ -1,0 +1,94 @@
+{{- if and (eq .Values.services.RedisQueue.enabled "true") (eq .Values.services.ReplicationInitJob.enabled "true") }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redis-queue-replication-init
+  namespace: {{ .Release.Namespace }}
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: init
+          image: {{ .Values.services.ReplicationInitJob.image | default "redis/redis-stack-server:latest" }}
+          command: ["/bin/sh", "-c"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-queue-secret
+                  key: redis-password
+            - name: REPLICA_COUNT
+              value: {{ .Values.redis.replicaCount | quote }}
+            - name: REDIS_PORT
+              value: {{ .Values.services.RedisQueue.port | quote }}
+          args:
+            - |
+              set -euo pipefail
+
+              PRIMARY_HOST="redis-queue-0-0.redis-queue-0.{{ .Release.Namespace }}.svc.cluster.local"
+              SERVICE_HOST="redis-queue.{{ .Release.Namespace }}.svc.cluster.local"
+              REPLICA_COUNT="{{ .Values.redis.replicaCount }}"
+              PORT="{{ .Values.services.RedisQueue.port }}"
+
+              echo "Waiting for Redis primary (redis-queue-0-0) to be ready..."
+              for i in $(seq 1 90); do
+                if redis-cli -h "$PRIMARY_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning ping >/dev/null 2>&1; then
+                  echo "Primary is ready"; break; fi
+                sleep 2
+                if [ "$i" -eq 90 ]; then echo "Primary not ready after wait"; exit 1; fi
+              done
+
+              echo "Configuring primary role..."
+              redis-cli -h "$PRIMARY_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning REPLICAOF NO ONE || true
+
+              echo "Waiting for all $REPLICA_COUNT replicas to be ready..."
+              for i in $(seq 1 $REPLICA_COUNT); do
+                REPLICA_HOST="redis-queue-${i}-0.redis-queue-${i}.{{ .Release.Namespace }}.svc.cluster.local"
+                echo "Waiting for replica redis-queue-${i}-0 at $REPLICA_HOST..."
+                
+                # Wait for DNS
+                for j in $(seq 1 90); do
+                  if nslookup "$REPLICA_HOST" >/dev/null 2>&1; then 
+                    echo "  DNS resolved for redis-queue-${i}-0"
+                    break
+                  fi
+                  sleep 2
+                  if [ "$j" -eq 90 ]; then 
+                    echo "  ERROR: DNS failed for redis-queue-${i}-0 after 3 minutes"
+                    exit 1
+                  fi
+                done
+
+                # Wait for Redis to be ready
+                for j in $(seq 1 90); do
+                  if redis-cli -h "$REPLICA_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning ping >/dev/null 2>&1; then
+                    echo "  ✓ redis-queue-${i}-0 is ready"
+                    break
+                  fi
+                  sleep 2
+                  if [ "$j" -eq 90 ]; then 
+                    echo "  ERROR: redis-queue-${i}-0 not ready after 3 minutes"
+                    exit 1
+                  fi
+                done
+              done
+
+              echo "All replicas are ready. Configuring replication..."
+              for i in $(seq 1 $REPLICA_COUNT); do
+                REPLICA_HOST="redis-queue-${i}-0.redis-queue-${i}.{{ .Release.Namespace }}.svc.cluster.local"
+                echo "Configuring replica redis-queue-${i}-0: $REPLICA_HOST"
+
+                echo "Setting up replication on redis-queue-${i}-0 to follow service endpoint..."
+                # Use service endpoint so replicas always follow current primary
+                redis-cli -h "$REPLICA_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning \
+                  REPLICAOF "$SERVICE_HOST" "$PORT"
+
+                echo "✔ redis-queue-${i}-0 configured to replicate from $SERVICE_HOST"
+              done
+
+              echo "✔ All $REPLICA_COUNT replicas configured with replication."
+              echo "✔ Replicas will follow the current primary via service: $SERVICE_HOST"
+              
+{{- end }}

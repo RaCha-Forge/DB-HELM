@@ -1,0 +1,121 @@
+# ===========================
+# Redis Queue Helm Chart Values
+# Optimized for: Job Queues (Celery, Bull, BullMQ, Sidekiq)
+# ===========================
+
+# Override default names (leave empty to use chart defaults)
+nameOverride: "redis-queue"
+fullnameOverride: ""
+
+# Redis configuration
+redis:
+  replicaCount: 2  # Number of replica pods (total pods = replicaCount + 1)
+  promotableReplicas: "2"  # Comma-separated indexes of replicas eligible for promotion (0-based)
+
+# RBAC configuration
+serviceAccount:
+  create: true
+  name: ""  # Auto-generated: redis-queue-failover-sa
+
+rbac:
+  create: true
+  roleName: ""  # Auto-generated: redis-queue-failover-role
+  roleBindingName: ""  # Auto-generated: redis-queue-failover-rb
+
+# ConfigMap configuration
+configMap:
+  name: ""  # Auto-generated: redis-queue-ha-scripts
+
+# Secret configuration
+secrets:
+  name: ""  # Auto-generated: redis-queue-secret
+  redisPassword: "Redis#sjahdbckjas"
+
+# Job configuration
+job:
+  name: ""  # Auto-generated: redis-queue-replication-init
+
+# Service configuration
+service:
+  name: ""  # Auto-generated: redis-queue
+
+# Lease configuration (for HA controller leader election)
+lease:
+  name: ""  # Auto-generated: redis-queue-ha-controller-lease
+
+# Image pull secret configuration
+imagePullSecret:
+  enabled: "false"
+  value: ecr-secret
+
+# Image pull policy
+imagePullPolicy: IfNotPresent
+
+# Storage class configuration
+storageClass:
+  name: "gp3"
+
+# Service configuration
+services:
+  # Replication Init Job
+  ReplicationInitJob:
+    enabled: "true"
+    image: 165742853134.dkr.ecr.ap-south-1.amazonaws.com/fyno/redis:latest-arm64
+
+  # Redis Queue Configuration - OPTIMIZED FOR JOB QUEUES
+  RedisQueue:
+    enabled: "true"
+    image: 165742853134.dkr.ecr.ap-south-1.amazonaws.com/fyno/redis:latest-arm64
+    port: 6003
+    
+    # QUEUE-OPTIMIZED REDIS CONFIGURATION
+    config:
+      # Memory Management
+      maxmemory: "6gb"
+      maxmemoryPolicy: "noeviction"  # Evict oldest jobs when full
+      
+      # Persistence - Balanced (acceptable to lose seconds of data)
+      appendonly: "yes"
+      appendfsync: "everysec"  # Fsync every second (good balance)
+      save: "900 1 300 10 60 10000"  # Standard RDB snapshots
+      
+      # Network & Connection
+      maxclients: 10000
+      tcpBacklog: 511
+      timeout: 300  # 5 minutes
+      tcpKeepalive: 300
+      hz: 10
+      
+      # Replication
+      replBacklogSize: "256mb"  # Medium backlog for job queues
+      replBacklogTtl: 3600
+      minReplicasToWrite: 0
+      minReplicasMaxLag: 10  # 10 seconds acceptable lag
+      
+      # Performance
+      lazyfreeMemoryEviction: "no"  # Standard eviction
+      activedefrag: "no"  # Stable performance
+    
+    resources:
+      requests:
+        storage: "30Gi"
+        cpu: "1"
+        memory: "6Gi"
+      limits:
+        cpu: "2"
+        memory: "8Gi"
+
+  # Redis Controller (HA Failover)
+  RedisController:
+    enabled: "true"
+    runAsSidecar: "true"
+    image: 165742853134.dkr.ecr.ap-south-1.amazonaws.com/fyno/mongo:python
+    replicas: 1
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "200Mi"
+      limits:
+        cpu: "100m"
+        memory: "200Mi"
+
