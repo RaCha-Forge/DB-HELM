@@ -22,16 +22,17 @@ spec:
             - name: REPLICA_COUNT
               value: {{ .Values.redis.replicaCount | quote }}
             - name: REDIS_PORT
-              value: {{ .Values.services.RedisDB.port | quote }}
+              value: {{ .Values.services.RedisDB.internalPort | quote }}
+            - name: SERVICE_PORT
+              value: {{ .Values.services.RedisDB.internalPort | quote }}
           args:
             - |
               set -euo pipefail
-
               PRIMARY_HOST="redis-db-0-0.redis-db-0.{{ .Release.Namespace }}.svc.cluster.local"
-              SERVICE_HOST="redis-db.{{ .Release.Namespace }}.svc.cluster.local"
+              REPLICATION_HOST="$PRIMARY_HOST"
               REPLICA_COUNT="{{ .Values.redis.replicaCount }}"
-              PORT="{{ .Values.services.RedisDB.port }}"
-
+              PORT="{{ .Values.services.RedisDB.internalPort }}"
+              SERVICE_PORT="{{ .Values.services.RedisDB.internalPort }}"
               echo "Waiting for Redis primary (redis-db-0-0) to be ready..."
               for i in $(seq 1 90); do
                 if redis-cli -h "$PRIMARY_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning ping >/dev/null 2>&1; then
@@ -39,12 +40,10 @@ spec:
                 sleep 2
                 if [ "$i" -eq 90 ]; then echo "Primary not ready after wait"; exit 1; fi
               done
-
               echo "Waiting for all Redis replicas to be ready..."
               for i in $(seq 1 $REPLICA_COUNT); do
                 REPLICA_HOST="redis-db-${i}-0.redis-db-${i}.{{ .Release.Namespace }}.svc.cluster.local"
                 echo "Waiting for replica redis-db-${i}-0 at $REPLICA_HOST..."
-
                 for attempt in $(seq 1 90); do
                   if redis-cli -h "$REPLICA_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning ping >/dev/null 2>&1; then
                     echo "  ✓ redis-db-${i}-0 is ready"
@@ -57,18 +56,15 @@ spec:
                   fi
                 done
               done
-
               echo "Configuring replication on all replicas..."
               for i in $(seq 1 $REPLICA_COUNT); do
                 REPLICA_HOST="redis-db-${i}-0.redis-db-${i}.{{ .Release.Namespace }}.svc.cluster.local"
                 echo "Configuring replica redis-db-${i}-0: $REPLICA_HOST"
-                
-                echo "Setting up replication on redis-db-${i}-0 to follow service endpoint..."
+                echo "Setting up replication on redis-db-${i}-0 to follow $REPLICATION_HOST..."
                 redis-cli -h "$REPLICA_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning \
-                  REPLICAOF "$SERVICE_HOST" "$PORT" || {
+                  REPLICAOF "$REPLICATION_HOST" "$SERVICE_PORT" || {
                   echo "ERROR: Failed to configure replication on redis-db-${i}-0"; exit 1; }
-                echo "✔ redis-db-${i}-0 configured to replicate from $SERVICE_HOST"
+                echo "✔ redis-db-${i}-0 configured to replicate from $REPLICATION_HOST"
               done
-
               echo "✅ All Redis replicas configured successfully"
 {{- end }}

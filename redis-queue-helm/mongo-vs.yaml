@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: fyno-mongo-vs
+  namespace: mongo
+spec:
+  gateways:
+  - istio-system/fyno-gateway
+  hosts:
+  - eks-mongo.dev.fyno.io
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: mongo
+        port:
+          number: 80

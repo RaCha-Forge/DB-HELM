@@ -2,54 +2,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: redis-ha-controller
+  name: redis-logstream-ha-controller
   namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.services.RedisController.replicas }}
   selector:
     matchLabels:
-      app: redis-ha-controller
+      app: redis-logstream-ha-controller
   template:
     metadata:
       labels:
-        app: redis-ha-controller
+        app: redis-logstream-ha-controller
     spec:
-      serviceAccountName: redis-failover-sa
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-{{ toYaml . | nindent 8 }}
-      {{- end }}
+      serviceAccountName: {{ include "redis-logstream.serviceAccountName" . }}
       {{- if eq .Values.imagePullSecret.enabled "true" }}
       imagePullSecrets:
         - name: {{ .Values.imagePullSecret.value }}
       {{- end }}
-      
-      # --------------------------
-      # INIT CONTAINER
-      # --------------------------
-      initContainers:
-        - name: install-deps
-          image: {{ .Values.services.RedisController.image }}
-          imagePullPolicy: {{ .Values.imagePullPolicy }}
-          command:
-            - /bin/bash
-            - -c
-            - |
-              pip install --no-cache-dir redis kubernetes --target=/deps
-          volumeMounts:
-            - name: deps
-              mountPath: /deps
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "128Mi"
-            limits:
-              cpu: "100m"
-              memory: "256Mi"
 
       # --------------------------
       # MAIN CONTROLLER
@@ -58,11 +27,7 @@ spec:
         - name: ha-controller
           image: {{ .Values.services.RedisController.image }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
-          command:
-            - /bin/sh
-            - -c
-            - |
-              python /app/redis_ha_controller.py
+          command: ["python3", "/app/redis_ha_controller.py"]
           env:
             - name: POD_NAME
               valueFrom:
@@ -73,15 +38,23 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: PRIMARY_HOST
-              value: "redis-queue-0-0.redis-queue-0"
+              value: "redis-logstream-0-0.redis-logstream-0"
             - name: SERVICE_NAME
-              value: "redis-queue"
+              value: "redis-logstream"
+            - name: SERVICE_HOST
+              value: "redis-logstream-0-0.redis-logstream-0.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: SERVICE_PORT
+              value: {{ .Values.services.RedisLogStream.internalPort | quote }}
             - name: REDIS_PORT
-              value: {{ .Values.services.RedisQueue.port | quote }}
+              value: {{ .Values.services.RedisLogStream.internalPort | quote }}
+            - name: CHECK_INTERVAL_SECONDS
+              value: {{ .Values.services.RedisController.checkIntervalSeconds | quote }}
+            - name: FAILOVER_THRESHOLD
+              value: {{ .Values.services.RedisController.failoverThreshold | quote }}
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: redis-queue-secret
+                  name: redis-logstream-secret
                   key: redis-password
             - name: REPLICA_COUNT
               value: {{ .Values.redis.replicaCount | quote }}
@@ -115,7 +88,7 @@ spec:
       volumes:
         - name: script
           configMap:
-            name: redis-ha-scripts
+            name: {{ include "redis-logstream.configMapName" . }}
         - name: deps
           emptyDir: {}
 

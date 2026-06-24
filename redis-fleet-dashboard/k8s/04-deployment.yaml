@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-fleet-dashboard
+  namespace: redis-fyno
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-fleet-dashboard
+  template:
+    metadata:
+      labels:
+        app: redis-fleet-dashboard
+    spec:
+      serviceAccountName: redis-fleet-dashboard
+      containers:
+        - name: dashboard
+          image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/mongo:ha-python
+          imagePullPolicy: IfNotPresent
+          command: ["python3", "/app/redis_fleet_dashboard.py"]
+          env:
+            - name: LISTEN_PORT
+              value: "8080"
+            - name: TARGETS_FILE
+              value: "/config/targets.json"
+            - name: ROLLOUT_TIMEOUT_SECONDS
+              value: "300"
+            - name: DASHBOARD_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: redis-fleet-dashboard-auth
+                  key: username
+            - name: DASHBOARD_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-fleet-dashboard-auth
+                  key: password
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/redis_fleet_dashboard.py
+              subPath: redis_fleet_dashboard.py
+            - name: app-config
+              mountPath: /config/targets.json
+              subPath: targets.json
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: app-config
+          configMap:
+            name: redis-fleet-dashboard-config

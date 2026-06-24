@@ -1,6 +1,6 @@
 apiVersion: v2
 name: redis-ts
-description: Redis Cache with HA Failover - Cache-optimized configuration with allkeys-lru eviction
+description: Redis TS with HA Failover - TS-optimized configuration with allkeys-lru eviction
 type: application
 version: 8.6.3
 appVersion: "8.6.3"

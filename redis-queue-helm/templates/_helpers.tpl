@@ -102,6 +102,20 @@ Service name
 {{- end }}
 
 {{/*
+Envoy service name
+*/}}
+{{- define "redis-queue.envoyServiceName" -}}
+{{- default (include "redis-queue.serviceName" .) .Values.services.Envoy.serviceName }}
+{{- end }}
+
+{{/*
+Redis master service name
+*/}}
+{{- define "redis-queue.masterServiceName" -}}
+{{- default (printf "%s-master" (include "redis-queue.serviceName" .)) .Values.services.Envoy.masterServiceName }}
+{{- end }}
+
+{{/*
 Lease name for HA controller
 */}}
 {{- define "redis-queue.leaseName" -}}

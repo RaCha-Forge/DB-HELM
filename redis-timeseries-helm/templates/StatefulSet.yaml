@@ -1,4 +1,4 @@
-{{- if eq .Values.services.RedisCache.enabled "true" }}
+{{- if eq .Values.services.RedisTS.enabled "true" }}
 
 # ===========================
 # PRIMARY REDIS STATEFULSET (redis-ts-0)
@@ -22,7 +22,7 @@ spec:
     metadata:
       labels:
         app: redis-ts
-        role: primary
+        role: master
         redis-index: "0"
     spec:
       securityContext:
@@ -51,12 +51,12 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: redis
-          image: {{ .Values.services.RedisCache.image }}
+          image: {{ .Values.services.RedisTS.image }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           command: ["redis-server", "--user monitoruser on >9sIb7mh8DT6AH27irj67D  ~* +@all"]
           args:
             - --port
-            - {{ .Values.services.RedisCache.port | quote }}
+            - {{ .Values.services.RedisTS.internalPort | quote }}
             - --protected-mode
             - "no"
             - --dir
@@ -72,48 +72,48 @@ spec:
             - "$(REDIS_PASSWORD)"
             # CACHE OPTIMIZED PERSISTENCE - Minimal for Speed
             - --appendonly
-            - {{ .Values.services.RedisCache.config.appendonly | quote }}
+            - {{ .Values.services.RedisTS.config.appendonly | quote }}
             - --save
-            - {{ .Values.services.RedisCache.config.save | quote }}
-            # Memory Management - Cache Optimized (evict keys with TTL)
+            - {{ .Values.services.RedisTS.config.save | quote }}
+            # Memory Management - TS Optimized (evict keys with TTL)
             - --maxmemory
-            - {{ .Values.services.RedisCache.config.maxmemory | quote }}
+            - {{ .Values.services.RedisTS.config.maxmemory | quote }}
             - --maxmemory-policy
-            - {{ .Values.services.RedisCache.config.maxmemoryPolicy | quote }}
+            - {{ .Values.services.RedisTS.config.maxmemoryPolicy | quote }}
             - --maxmemory-samples
-            - {{ .Values.services.RedisCache.config.maxmemorySamples | quote }}
+            - {{ .Values.services.RedisTS.config.maxmemorySamples | quote }}
             # Connection Limits
             # - --maxclients
-            # - {{ .Values.services.RedisCache.config.maxclients | quote }}
+            # - {{ .Values.services.RedisTS.config.maxclients | quote }}
             # - --tcp-backlog
-            # - {{ .Values.services.RedisCache.config.tcpBacklog | quote }}
+            # - {{ .Values.services.RedisTS.config.tcpBacklog | quote }}
             # - --timeout
-            # - {{ .Values.services.RedisCache.config.timeout | quote }}
+            # - {{ .Values.services.RedisTS.config.timeout | quote }}
             # - --tcp-keepalive
-            # - {{ .Values.services.RedisCache.config.tcpKeepalive | quote }}
+            # - {{ .Values.services.RedisTS.config.tcpKeepalive | quote }}
             # Performance
             - --hz
-            - {{ .Values.services.RedisCache.config.hz | quote }}
-            # Replication - Cache Optimized (smaller backlog)
+            - {{ .Values.services.RedisTS.config.hz | quote }}
+            # Replication - TS Optimized (smaller backlog)
             - --repl-backlog-size
-            - {{ .Values.services.RedisCache.config.replBacklogSize | quote }}
+            - {{ .Values.services.RedisTS.config.replBacklogSize | quote }}
             - --repl-backlog-ttl
-            - {{ .Values.services.RedisCache.config.replBacklogTtl | quote }}
+            - {{ .Values.services.RedisTS.config.replBacklogTtl | quote }}
             - --min-replicas-to-write
-            - {{ .Values.services.RedisCache.config.minReplicasToWrite | quote }}
+            - {{ .Values.services.RedisTS.config.minReplicasToWrite | quote }}
             - --min-replicas-max-lag
-            - {{ .Values.services.RedisCache.config.minReplicasMaxLag | quote }}
-            # Cache-Specific Settings - Fast Eviction
+            - {{ .Values.services.RedisTS.config.minReplicasMaxLag | quote }}
+            # TS-Specific Settings - Fast Eviction
             - --lazyfree-lazy-eviction
-            - {{ .Values.services.RedisCache.config.lazyfreeMemoryEviction | quote }}
+            - {{ .Values.services.RedisTS.config.lazyfreeMemoryEviction | quote }}
             - --lazyfree-lazy-server-del
-            - {{ .Values.services.RedisCache.config.lazyfreeServerDel | quote }}
+            - {{ .Values.services.RedisTS.config.lazyfreeServerDel | quote }}
             - --lazyfree-lazy-expire
-            - {{ .Values.services.RedisCache.config.lazyfreeLazyExpire | quote }}
+            - {{ .Values.services.RedisTS.config.lazyfreeLazyExpire | quote }}
             - --activedefrag
-            - {{ .Values.services.RedisCache.config.activedefrag | quote }}
+            - {{ .Values.services.RedisTS.config.activedefrag | quote }}
             - --active-expire-effort
-            - {{ .Values.services.RedisCache.config.activeExpireEffort | quote }}
+            - {{ .Values.services.RedisTS.config.activeExpireEffort | quote }}
             - --loadmodule
             - /usr/local/lib/redis/modules/redistimeseries.so
           env:
@@ -123,20 +123,52 @@ spec:
                   name: redis-ts-secret
                   key: redis-password
             - name: REDIS_PORT
-              value: {{ .Values.services.RedisCache.port | quote }}
+              value: {{ .Values.services.RedisTS.internalPort | quote }}
           ports:
-            - containerPort: {{ .Values.services.RedisCache.port }}
+            - containerPort: {{ .Values.services.RedisTS.internalPort }}
               name: redis
           resources:
             requests:
-              cpu: {{ .Values.services.RedisCache.resources.requests.cpu | quote }}
-              memory: {{ .Values.services.RedisCache.resources.requests.memory | quote }}
+              cpu: {{ .Values.services.RedisTS.resources.requests.cpu | quote }}
+              memory: {{ .Values.services.RedisTS.resources.requests.memory | quote }}
             limits:
-              cpu: {{ .Values.services.RedisCache.resources.limits.cpu | quote }}
-              memory: {{ .Values.services.RedisCache.resources.limits.memory | quote }}
+              cpu: {{ .Values.services.RedisTS.resources.limits.cpu | quote }}
+              memory: {{ .Values.services.RedisTS.resources.limits.memory | quote }}
           volumeMounts:
             - name: data
               mountPath: /data
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -p {{ .Values.services.RedisTS.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -p {{ .Values.services.RedisTS.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  redis-cli -p {{ .Values.services.RedisTS.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
 {{- if and (eq .Values.services.RedisController.enabled "true") (eq .Values.services.RedisController.runAsSidecar "true") }}
         # HA Controller Sidecar
         - name: ha-controller
@@ -156,8 +188,12 @@ spec:
               value: "redis-ts-0-0.redis-ts-0"
             - name: SERVICE_NAME
               value: "redis-ts"
+            - name: SERVICE_HOST
+              value: "redis-ts-0-0.redis-ts-0.{{ $.Release.Namespace }}.svc.cluster.local"
+            - name: SERVICE_PORT
+              value: {{ .Values.services.RedisTS.internalPort | quote }}
             - name: REDIS_PORT
-              value: {{ .Values.services.RedisCache.port | quote }}
+              value: {{ .Values.services.RedisTS.internalPort | quote }}
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -167,20 +203,16 @@ spec:
               value: {{ .Values.redis.replicaCount | quote }}
             - name: PROMOTABLE_REPLICAS
               value: {{ .Values.redis.promotableReplicas | quote }}
-            - name: LEADER_ELECTION_ENABLED
-              value: "true"
-            - name: LEASE_NAME
-              value: "redis-ts-ha-controller-lease"
-            - name: PYTHONPATH
-              value: "/deps"
+            - name: CHECK_INTERVAL_SECONDS
+              value: {{ .Values.services.RedisController.checkIntervalSeconds | quote }}
+            - name: FAILOVER_THRESHOLD
+              value: {{ .Values.services.RedisController.failoverThreshold | quote }}
             - name: PYTHONUNBUFFERED
               value: "1"
           volumeMounts:
             - name: ha-scripts
               mountPath: /app/redis_ha_controller.py
               subPath: redis_ha_controller.py
-            - name: deps
-              mountPath: /deps
           resources:
             requests:
               cpu: {{ .Values.services.RedisController.resources.requests.cpu | quote }}
@@ -190,13 +222,11 @@ spec:
               memory: {{ .Values.services.RedisController.resources.limits.memory | quote }}
 {{- end }}
 
-      volumes:
 {{- if and (eq .Values.services.RedisController.enabled "true") (eq .Values.services.RedisController.runAsSidecar "true") }}
+      volumes:
         - name: ha-scripts
           configMap:
             name: redis-ts-ha-scripts
-        - name: deps
-          emptyDir: {}
 {{- end }}
 
   volumeClaimTemplates:
@@ -207,7 +237,7 @@ spec:
         storageClassName: {{ .Values.storageClass.name }}
         resources:
           requests:
-            storage: {{ .Values.services.RedisCache.resources.requests.storage }}
+            storage: {{ .Values.services.RedisTS.resources.requests.storage }}
 
 ---
 
@@ -265,20 +295,16 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: redis
-          image: {{ $.Values.services.RedisCache.image }}
+          image: {{ $.Values.services.RedisTS.image }}
           imagePullPolicy: {{ $.Values.imagePullPolicy }}
           command: ["redis-server", "--user monitoruser on >9sIb7mh8DT6AH27irj67D  ~* +@all"]
           args:
             - --port
-            - {{ $.Values.services.RedisCache.port | quote }}
+            - {{ $.Values.services.RedisTS.port | quote }}
             - --protected-mode
             - "no"
             - --dir
             - /data
-            #- --user
-            #- monitoruser on >9sIb7mh8DT6AH27irj67D  ~* +@all
-            #- --aclfile
-            #- /data/users.acl
             # Authentication
             - --requirepass
             - "$(REDIS_PASSWORD)"
@@ -286,48 +312,48 @@ spec:
             - "$(REDIS_PASSWORD)"
             # CACHE OPTIMIZED PERSISTENCE - Minimal for Speed
             - --appendonly
-            - {{ $.Values.services.RedisCache.config.appendonly | quote }}
+            - {{ $.Values.services.RedisTS.config.appendonly | quote }}
             - --save
-            - {{ $.Values.services.RedisCache.config.save | quote }}
-            # Memory Management - Cache Optimized (evict keys with TTL)
+            - {{ $.Values.services.RedisTS.config.save | quote }}
+            # Memory Management - TS Optimized (evict keys with TTL)
             - --maxmemory
-            - {{ $.Values.services.RedisCache.config.maxmemory | quote }}
+            - {{ $.Values.services.RedisTS.config.maxmemory | quote }}
             - --maxmemory-policy
-            - {{ $.Values.services.RedisCache.config.maxmemoryPolicy | quote }}
+            - {{ $.Values.services.RedisTS.config.maxmemoryPolicy | quote }}
             - --maxmemory-samples
-            - {{ $.Values.services.RedisCache.config.maxmemorySamples | quote }}
+            - {{ $.Values.services.RedisTS.config.maxmemorySamples | quote }}
             # Connection Limits
             # - --maxclients
-            # - {{ $.Values.services.RedisCache.config.maxclients | quote }}
+            # - {{ $.Values.services.RedisTS.config.maxclients | quote }}
             # - --tcp-backlog
-            # - {{ $.Values.services.RedisCache.config.tcpBacklog | quote }}
+            # - {{ $.Values.services.RedisTS.config.tcpBacklog | quote }}
             # - --timeout
-            # - {{ $.Values.services.RedisCache.config.timeout | quote }}
+            # - {{ $.Values.services.RedisTS.config.timeout | quote }}
             # - --tcp-keepalive
-            # - {{ $.Values.services.RedisCache.config.tcpKeepalive | quote }}
+            # - {{ $.Values.services.RedisTS.config.tcpKeepalive | quote }}
             # Performance
             - --hz
-            - {{ $.Values.services.RedisCache.config.hz | quote }}
-            # Replication - Cache Optimized (smaller backlog)
+            - {{ $.Values.services.RedisTS.config.hz | quote }}
+            # Replication - TS Optimized (smaller backlog)
             - --repl-backlog-size
-            - {{ $.Values.services.RedisCache.config.replBacklogSize | quote }}
+            - {{ $.Values.services.RedisTS.config.replBacklogSize | quote }}
             - --repl-backlog-ttl
-            - {{ $.Values.services.RedisCache.config.replBacklogTtl | quote }}
+            - {{ $.Values.services.RedisTS.config.replBacklogTtl | quote }}
             - --min-replicas-to-write
-            - {{ $.Values.services.RedisCache.config.minReplicasToWrite | quote }}
+            - {{ $.Values.services.RedisTS.config.minReplicasToWrite | quote }}
             - --min-replicas-max-lag
-            - {{ $.Values.services.RedisCache.config.minReplicasMaxLag | quote }}
-            # Cache-Specific Settings - Fast Eviction
+            - {{ $.Values.services.RedisTS.config.minReplicasMaxLag | quote }}
+            # TS-Specific Settings - Fast Eviction
             - --lazyfree-lazy-eviction
-            - {{ $.Values.services.RedisCache.config.lazyfreeMemoryEviction | quote }}
+            - {{ $.Values.services.RedisTS.config.lazyfreeMemoryEviction | quote }}
             - --lazyfree-lazy-server-del
-            - {{ $.Values.services.RedisCache.config.lazyfreeServerDel | quote }}
+            - {{ $.Values.services.RedisTS.config.lazyfreeServerDel | quote }}
             - --lazyfree-lazy-expire
-            - {{ $.Values.services.RedisCache.config.lazyfreeLazyExpire | quote }}
+            - {{ $.Values.services.RedisTS.config.lazyfreeLazyExpire | quote }}
             - --activedefrag
-            - {{ $.Values.services.RedisCache.config.activedefrag | quote }}
+            - {{ $.Values.services.RedisTS.config.activedefrag | quote }}
             - --active-expire-effort
-            - {{ $.Values.services.RedisCache.config.activeExpireEffort | quote }}
+            - {{ $.Values.services.RedisTS.config.activeExpireEffort | quote }}
             - --loadmodule
             - /usr/local/lib/redis/modules/redistimeseries.so
           env:
@@ -337,20 +363,52 @@ spec:
                   name: redis-ts-secret
                   key: redis-password
             - name: REDIS_PORT
-              value: {{ $.Values.services.RedisCache.port | quote }}
+              value: {{ $.Values.services.RedisTS.port | quote }}
           ports:
-            - containerPort: {{ $.Values.services.RedisCache.port }}
+            - containerPort: {{ $.Values.services.RedisTS.port }}
               name: redis
           resources:
             requests:
-              cpu: {{ $.Values.services.RedisCache.resources.requests.cpu | quote }}
-              memory: {{ $.Values.services.RedisCache.resources.requests.memory | quote }}
+              cpu: {{ $.Values.services.RedisTS.resources.requests.cpu | quote }}
+              memory: {{ $.Values.services.RedisTS.resources.requests.memory | quote }}
             limits:
-              cpu: {{ $.Values.services.RedisCache.resources.limits.cpu | quote }}
-              memory: {{ $.Values.services.RedisCache.resources.limits.memory | quote }}
+              cpu: {{ $.Values.services.RedisTS.resources.limits.cpu | quote }}
+              memory: {{ $.Values.services.RedisTS.resources.limits.memory | quote }}
           volumeMounts:
             - name: data
               mountPath: /data
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -p {{ $.Values.services.RedisTS.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - redis-cli -p {{ $.Values.services.RedisTS.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - |
+                  redis-cli -p {{ $.Values.services.RedisTS.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
 {{- if and (eq $.Values.services.RedisController.enabled "true") (eq $.Values.services.RedisController.runAsSidecar "true") }}
         # HA Controller Sidecar
         - name: ha-controller
@@ -370,8 +428,12 @@ spec:
               value: "redis-ts-0-0.redis-ts-0"
             - name: SERVICE_NAME
               value: "redis-ts"
+            - name: SERVICE_HOST
+              value: "redis-ts-0-0.redis-ts-0.{{ $.Release.Namespace }}.svc.cluster.local"
+            - name: SERVICE_PORT
+              value: {{ $.Values.services.RedisTS.internalPort | quote }}
             - name: REDIS_PORT
-              value: {{ $.Values.services.RedisCache.port | quote }}
+              value: {{ $.Values.services.RedisTS.internalPort | quote }}
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -381,20 +443,16 @@ spec:
               value: {{ $.Values.redis.replicaCount | quote }}
             - name: PROMOTABLE_REPLICAS
               value: {{ $.Values.redis.promotableReplicas | quote }}
-            - name: LEADER_ELECTION_ENABLED
-              value: "true"
-            - name: LEASE_NAME
-              value: "redis-ts-ha-controller-lease"
-            - name: PYTHONPATH
-              value: "/deps"
+            - name: CHECK_INTERVAL_SECONDS
+              value: {{ $.Values.services.RedisController.checkIntervalSeconds | quote }}
+            - name: FAILOVER_THRESHOLD
+              value: {{ $.Values.services.RedisController.failoverThreshold | quote }}
             - name: PYTHONUNBUFFERED
               value: "1"
           volumeMounts:
             - name: ha-scripts
               mountPath: /app/redis_ha_controller.py
               subPath: redis_ha_controller.py
-            - name: deps
-              mountPath: /deps
           resources:
             requests:
               cpu: {{ $.Values.services.RedisController.resources.requests.cpu | quote }}
@@ -404,15 +462,12 @@ spec:
               memory: {{ $.Values.services.RedisController.resources.limits.memory | quote }}
 {{- end }}
 
-      volumes:
 {{- if and (eq $.Values.services.RedisController.enabled "true") (eq $.Values.services.RedisController.runAsSidecar "true") }}
+      volumes:
         - name: ha-scripts
           configMap:
             name: redis-ts-ha-scripts
-        - name: deps
-          emptyDir: {}
 {{- end }}
-
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -421,7 +476,7 @@ spec:
         storageClassName: {{ $.Values.storageClass.name }}
         resources:
           requests:
-            storage: {{ $.Values.services.RedisCache.resources.requests.storage }}
+            storage: {{ $.Values.services.RedisTS.resources.requests.storage }}
 {{- end }}
 
 {{- end }}

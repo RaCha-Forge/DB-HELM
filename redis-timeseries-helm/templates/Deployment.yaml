@@ -50,11 +50,7 @@ spec:
         - name: ha-controller
           image: {{ .Values.services.RedisController.image }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
-          command:
-            - /bin/sh
-            - -c
-            - |
-              python /app/redis_ha_controller.py
+          command: ["python3", "/app/redis_ha_controller.py"]
           env:
             - name: POD_NAME
               valueFrom:
@@ -69,7 +65,7 @@ spec:
             - name: SERVICE_NAME
               value: "redis-cache"
             - name: REDIS_PORT
-              value: {{ .Values.services.RedisCache.port | quote }}
+              value: {{ .Values.services.RedisTS.port | quote }}
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:

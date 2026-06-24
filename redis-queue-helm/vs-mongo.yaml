@@ -1,0 +1,38 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: mongo-node-1-vs
+  namespace: mongo
+spec:
+  gateways:
+  - istio-system/fyno-gateway
+
+  hosts:
+  - mongo-node2.dev.fyno.io
+  tcp:
+  - match:
+    - port: 443
+    route:
+    - destination:
+        host: mongo-datanode-0.mongo.svc.cluster.local
+        port:
+          number: 27017
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: mongo-node-2-vs
+  namespace: mongo
+spec:
+  gateways:
+  - istio-system/fyno-gateway
+  hosts:
+  - mongo-node1.dev.fyno.io
+  tcp:
+  - match:
+    - port: 443
+    route:
+    - destination:
+        host: mongo.mongo.svc.cluster.local
+        port:
+          number: 27017

@@ -1,0 +1,1376 @@
+apiVersion: v1
+data:
+  redis_fleet_dashboard.py: |
+    #!/usr/bin/env python3
+    """
+    Redis Fleet Dashboard — multi-cluster Redis ops dashboard.
+    Provides pod status, live Redis metrics, pod CPU/memory from metrics-server,
+    and ordered (replicas-first then primary) resource rollouts.
+    """
+
+    import base64
+    import json
+    import os
+    import secrets
+    import time
+    from http.cookies import SimpleCookie
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from urllib.parse import urlparse
+
+    import redis
+    from kubernetes import client, config
+
+    # -----------------------------------------------------------------------
+    # Configuration
+    # -----------------------------------------------------------------------
+    DASHBOARD_USERNAME = os.getenv("DASHBOARD_USERNAME", "admin")
+    DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "admin123")
+    LISTEN_HOST = os.getenv("LISTEN_HOST", "0.0.0.0")
+    LISTEN_PORT = int(os.getenv("LISTEN_PORT", "8080"))
+    _DEFAULT_TARGETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "targets.json")
+    TARGETS_FILE = os.getenv("TARGETS_FILE", _DEFAULT_TARGETS)
+    DEFAULT_TIMEOUT_SECONDS = int(os.getenv("ROLLOUT_TIMEOUT_SECONDS", "300"))
+    SESSION_TTL_SECONDS = int(os.getenv("SESSION_TTL_SECONDS", "43200"))
+    SESSION_COOKIE_NAME = "redis_fleet_dashboard_session"
+    ACTIVE_SESSIONS = {}
+
+    # -----------------------------------------------------------------------
+    # Kubernetes clients
+    # -----------------------------------------------------------------------
+    try:
+        config.load_incluster_config()
+    except Exception:
+        config.load_kube_config()
+
+    k8s_core = client.CoreV1Api()
+    k8s_apps = client.AppsV1Api()
+    k8s_custom = client.CustomObjectsApi()
+
+    # -----------------------------------------------------------------------
+    # CPU / Memory parsers
+    # -----------------------------------------------------------------------
+
+    def parse_cpu_to_milli(s):
+        """k8s CPU string → millicores (float)."""
+        s = str(s).strip()
+        if s.endswith("n"):
+            return round(int(s[:-1]) / 1_000_000, 1)
+        if s.endswith("u"):
+            return round(int(s[:-1]) / 1_000, 1)
+        if s.endswith("m"):
+            return round(float(s[:-1]), 1)
+        try:
+            return round(float(s) * 1000, 1)
+        except ValueError:
+            return 0.0
+
+
+    def parse_memory_to_mib(s):
+        """k8s memory string → MiB (float)."""
+        s = str(s).strip()
+        for suffix, factor in [
+            ("Ki", 1 / 1024), ("Mi", 1.0), ("Gi", 1024.0), ("Ti", 1024.0 * 1024),
+            ("K",  1 / 1024), ("M",  1.0), ("G",  1024.0), ("T",  1024.0 * 1024),
+        ]:
+            if s.endswith(suffix):
+                try:
+                    return round(float(s[: -len(suffix)]) * factor, 1)
+                except ValueError:
+                    return 0.0
+        try:
+            return round(float(s) / (1024 * 1024), 1)
+        except ValueError:
+            return 0.0
+
+
+    def get_pod_metrics(namespace, pod_name):
+        """Fetch CPU/memory from metrics-server for a pod. Returns None if unavailable."""
+        try:
+            data = k8s_custom.get_namespaced_custom_object(
+                group="metrics.k8s.io",
+                version="v1beta1",
+                namespace=namespace,
+                plural="pods",
+                name=pod_name,
+            )
+            containers = data.get("containers", [])
+            for c in containers:
+                if c.get("name") == "redis":
+                    u = c.get("usage", {})
+                    return {
+                        "cpu_milli": parse_cpu_to_milli(u.get("cpu", "0")),
+                        "memory_mib": parse_memory_to_mib(u.get("memory", "0Ki")),
+                    }
+            total_cpu = sum(parse_cpu_to_milli(c.get("usage", {}).get("cpu", "0")) for c in containers)
+            total_mem = sum(parse_memory_to_mib(c.get("usage", {}).get("memory", "0Ki")) for c in containers)
+            return {"cpu_milli": total_cpu, "memory_mib": total_mem}
+        except Exception:
+            return {"cpu_milli": None, "memory_mib": None}
+
+    # -----------------------------------------------------------------------
+    # Core helpers
+    # -----------------------------------------------------------------------
+
+    def load_targets():
+        with open(TARGETS_FILE, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        targets = {}
+        for item in raw.get("targets", []):
+            tid = item.get("id")
+            if tid:
+                targets[tid] = item
+        return targets
+
+
+    def now_epoch_ms():
+        return int(time.time() * 1000)
+
+
+    def redis_client(host, port, password):
+        return redis.Redis(
+            host=host,
+            port=port,
+            password=password,
+            decode_responses=True,
+            socket_connect_timeout=0.5,
+            socket_timeout=1.0,
+        )
+
+
+    def get_secret_value(namespace, secret_name, key):
+        sec = k8s_core.read_namespaced_secret(name=secret_name, namespace=namespace)
+        if not sec.data or key not in sec.data:
+            raise ValueError(f"Missing key '{key}' in secret '{secret_name}'")
+        return base64.b64decode(sec.data[key]).decode("utf-8")
+
+
+    def statefulset_host(sts_name, namespace):
+        return f"{sts_name}-0.{sts_name}.{namespace}.svc.cluster.local"
+
+
+    def is_local_mode(target):
+        return bool(target.get("localHost"))
+
+
+    def get_target_password(target):
+        if is_local_mode(target):
+            return target.get("localPassword", "")
+        secret_ref = target["redisPasswordSecret"]
+        secret_namespace = secret_ref.get("namespace", target["namespace"])
+        return get_secret_value(
+            secret_namespace,
+            secret_ref["name"],
+            secret_ref["key"],
+        )
+
+    # -----------------------------------------------------------------------
+    # Unified status builder
+    # -----------------------------------------------------------------------
+
+    def build_target_status(target):
+        """Return full status: pods + Redis metrics + StatefulSet resources."""
+        local = is_local_mode(target)
+        namespace = target["namespace"]
+        password = ""
+        password_error = ""
+        try:
+            password = get_target_password(target)
+        except Exception as exc:
+            # Keep showing pod and resource status even if Redis auth secret is missing.
+            password_error = f"Redis auth unavailable: {exc}"
+        redis_port = int(target["redisPort"])
+        container_name = target.get("redisContainerName", "redis")
+
+        # Replicas first, primary last — this is also the rollout order
+        ordered_sts = list(target.get("replicaStatefulSets", [])) + [target["primaryStatefulSet"]]
+
+        pods_data = []
+        for i, sts_name in enumerate(ordered_sts):
+            pod_name = f"{sts_name}-0"
+            host = target["localHost"] if local else statefulset_host(sts_name, namespace)
+            port = int(target["localPort"]) + i if local else redis_port
+
+            # ---- Redis metrics ----
+            redis_info = {
+                "reachable": False, "role": "unknown", "version": None,
+                "uptime_seconds": 0,
+                "used_memory_human": "-", "used_memory_peak_human": "-",
+                "used_memory_bytes": 0, "maxmemory_bytes": 0,
+                "connected_clients": 0, "ops_per_sec": 0,
+                "keyspace_hits": 0, "keyspace_misses": 0, "hit_ratio": None,
+                "total_keys": 0,
+                "master_link_status": "", "master_last_io_seconds_ago": 0,
+                "error": password_error,
+            }
+            if not password_error:
+                try:
+                    r = redis_client(host, port, password)
+                    info = r.info()
+                    hits = int(info.get("keyspace_hits", 0))
+                    misses = int(info.get("keyspace_misses", 0))
+                    total = hits + misses
+                    total_keys = sum(
+                        v.get("keys", 0) if isinstance(v, dict) else 0
+                        for k, v in info.items() if k.startswith("db")
+                    )
+                    redis_info.update({
+                        "reachable": True,
+                        "role": info.get("role", "unknown"),
+                        "version": info.get("redis_version"),
+                        "uptime_seconds": int(info.get("uptime_in_seconds", 0)),
+                        "used_memory_human": info.get("used_memory_human", "-"),
+                        "used_memory_peak_human": info.get("used_memory_peak_human", "-"),
+                        "used_memory_bytes": int(info.get("used_memory", 0)),
+                        "maxmemory_bytes": int(info.get("maxmemory", 0)),
+                        "connected_clients": int(info.get("connected_clients", 0)),
+                        "ops_per_sec": int(info.get("instantaneous_ops_per_sec", 0)),
+                        "keyspace_hits": hits,
+                        "keyspace_misses": misses,
+                        "hit_ratio": round(hits / total * 100, 1) if total > 0 else None,
+                        "total_keys": total_keys,
+                        "master_link_status": info.get("master_link_status", ""),
+                        "master_last_io_seconds_ago": int(info.get("master_last_io_seconds_ago", 0)),
+                    })
+                except Exception as exc:
+                    redis_info["error"] = str(exc)
+
+            # ---- Pod entry ----
+            pod = {
+                "name": pod_name, "statefulSet": sts_name, "host": host, "port": port,
+                "phase": "local" if local else "unknown",
+                "ready": True if local else False,
+                "podIP": host if local else "",
+                "nodeName": "localhost" if local else "",
+                "labels": {"role": "n/a"} if local else {},
+                "startTime": "",
+                "cpu_milli": None, "memory_mib": None,
+                "cpuRequest": "", "cpuLimit": "",
+                "memoryRequest": "", "memoryLimit": "",
+                "redis": redis_info,
+            }
+
+            if not local:
+                try:
+                    kpod = k8s_core.read_namespaced_pod(name=pod_name, namespace=namespace)
+                    pod.update({
+                        "phase": kpod.status.phase or "unknown",
+                        "podIP": kpod.status.pod_ip or "",
+                        "nodeName": kpod.spec.node_name or "",
+                        "labels": kpod.metadata.labels or {},
+                        "startTime": str(kpod.status.start_time) if kpod.status.start_time else "",
+                        "ready": any(
+                            c.type == "Ready" and c.status == "True"
+                            for c in (kpod.status.conditions or [])
+                        ),
+                    })
+                    for c in kpod.spec.containers:
+                        if c.name == container_name and c.resources:
+                            req = c.resources.requests or {}
+                            lim = c.resources.limits or {}
+                            pod["cpuRequest"] = req.get("cpu", "")
+                            pod["cpuLimit"] = lim.get("cpu", "")
+                            pod["memoryRequest"] = req.get("memory", "")
+                            pod["memoryLimit"] = lim.get("memory", "")
+                            break
+                except Exception:
+                    pass
+                m = get_pod_metrics(namespace, pod_name)
+                pod["cpu_milli"] = m.get("cpu_milli")
+                pod["memory_mib"] = m.get("memory_mib")
+
+            pods_data.append(pod)
+
+        # ---- StatefulSet resource configs ----
+        sts_list = []
+        for sts_name in ordered_sts:
+            entry = {
+                "name": sts_name,
+                "readyReplicas": 1 if local else 0,
+                "resources": {"requests": {}, "limits": {}},
+            }
+            if not local:
+                try:
+                    sts = k8s_apps.read_namespaced_stateful_set(name=sts_name, namespace=namespace)
+                    rc = next(
+                        (c for c in sts.spec.template.spec.containers if c.name == container_name),
+                        None,
+                    )
+                    entry["readyReplicas"] = sts.status.ready_replicas or 0
+                    if rc and rc.resources:
+                        entry["resources"] = {
+                            "requests": dict(rc.resources.requests or {}),
+                            "limits": dict(rc.resources.limits or {}),
+                        }
+                except Exception:
+                    pass
+            sts_list.append(entry)
+
+        return {
+            "time": now_epoch_ms(),
+            "target": {
+                "id": target["id"],
+                "name": target["name"],
+                "namespace": target["namespace"],
+                "description": target.get("description", ""),
+            },
+            "pods": pods_data,
+            "statefulSets": sts_list,
+        }
+
+    # -----------------------------------------------------------------------
+    # Rollout helpers
+    # -----------------------------------------------------------------------
+
+    def wait_for_rollout(namespace, sts_name, timeout_seconds):
+        deadline = time.time() + timeout_seconds
+        while time.time() < deadline:
+            sts = k8s_apps.read_namespaced_stateful_set(name=sts_name, namespace=namespace)
+            desired = sts.spec.replicas or 0
+            ready = sts.status.ready_replicas or 0
+            cur_rev = sts.status.current_revision
+            upd_rev = sts.status.update_revision
+            if ready == desired and ((not upd_rev) or cur_rev == upd_rev):
+                return True
+            time.sleep(2)
+        return False
+
+
+    def patch_one_statefulset(target, sts_name, payload):
+        namespace = target["namespace"]
+        container_name = target.get("redisContainerName", "redis")
+        pvc_tpl = target.get("pvcTemplateName", "data")
+        req, lim = {}, {}
+        if payload.get("cpuRequest"):    req["cpu"] = payload["cpuRequest"]
+        if payload.get("memoryRequest"): req["memory"] = payload["memoryRequest"]
+        if payload.get("cpuLimit"):      lim["cpu"] = payload["cpuLimit"]
+        if payload.get("memoryLimit"):   lim["memory"] = payload["memoryLimit"]
+        patch = {"spec": {"template": {"spec": {"containers": [
+            {"name": container_name, "resources": {"requests": req, "limits": lim}}
+        ]}}}}
+        if payload.get("storage"):
+            patch["spec"]["volumeClaimTemplates"] = [{"metadata": {"name": pvc_tpl}, "spec": {
+                "resources": {"requests": {"storage": payload["storage"]}}
+            }}]
+        k8s_apps.patch_namespaced_stateful_set(name=sts_name, namespace=namespace, body=patch)
+        if payload.get("storage"):
+            pvc_name = f"{pvc_tpl}-{sts_name}-0"
+            pvc_patch = {"spec": {"resources": {"requests": {"storage": payload["storage"]}}}}
+            k8s_core.patch_namespaced_persistent_volume_claim(name=pvc_name, namespace=namespace, body=pvc_patch)
+
+
+    def wait_for_replica_sync(target, timeout_seconds):
+        namespace = target["namespace"]
+        primary_sts = target["primaryStatefulSet"]
+        replicas = list(target.get("replicaStatefulSets", []))
+        if not replicas:
+            return True
+
+        try:
+            password = get_target_password(target)
+        except Exception:
+            # If auth is unavailable, skip Redis replication validation but keep ordered rollout safety.
+            return True
+
+        redis_port = int(target["redisPort"])
+        deadline = time.time() + timeout_seconds
+        while time.time() < deadline:
+            all_synced = True
+            for replica_sts in replicas:
+                replica_host = statefulset_host(replica_sts, namespace)
+                try:
+                    r = redis_client(replica_host, redis_port, password)
+                    info = r.info("replication")
+                    role = info.get("role", "unknown")
+                    master_link = info.get("master_link_status", "")
+                    master_host = info.get("master_host", "")
+                    if role != "slave" or master_link != "up" or primary_sts not in master_host:
+                        all_synced = False
+                        break
+                except Exception:
+                    all_synced = False
+                    break
+            if all_synced:
+                return True
+            time.sleep(2)
+        return False
+
+
+    def apply_ordered_update(target, payload):
+        timeout_seconds = int(payload.get("timeoutSeconds") or DEFAULT_TIMEOUT_SECONDS)
+        namespace = target["namespace"]
+        ordered = list(target.get("replicaStatefulSets", [])) + [target["primaryStatefulSet"]]
+        primary_sts = target["primaryStatefulSet"]
+        results = []
+        for sts_name in ordered:
+            step = {"statefulSet": sts_name, "patched": False, "rolledOut": False, "error": ""}
+            try:
+                if sts_name == primary_sts:
+                    sync_ok = wait_for_replica_sync(target, timeout_seconds)
+                    if not sync_ok:
+                        step["error"] = "Replicas did not sync with primary in time; primary update blocked"
+                        results.append(step)
+                        break
+
+                patch_one_statefulset(target, sts_name, payload)
+                step["patched"] = True
+                step["rolledOut"] = wait_for_rollout(namespace, sts_name, timeout_seconds)
+                if not step["rolledOut"]:
+                    step["error"] = f"Rollout timed out after {timeout_seconds}s"
+                    results.append(step)
+                    break
+            except Exception as exc:
+                step["error"] = str(exc)
+                results.append(step)
+                break
+            results.append(step)
+        success = (
+            all(x["patched"] and x["rolledOut"] and not x["error"] for x in results)
+            and len(results) == len(ordered)
+        )
+        return {"success": success, "steps": results}
+
+    # -----------------------------------------------------------------------
+    # HTTP helpers
+    # -----------------------------------------------------------------------
+
+    def auth_ok(headers):
+        cookie_header = headers.get("Cookie", "")
+        if cookie_header:
+            try:
+                cookie = SimpleCookie()
+                cookie.load(cookie_header)
+                token = cookie.get(SESSION_COOKIE_NAME)
+                if token and validate_session(token.value):
+                    return True
+            except Exception:
+                pass
+
+        h = headers.get("Authorization", "")
+        if not h.startswith("Basic "):
+            return False
+        try:
+            raw = base64.b64decode(h.split(" ", 1)[1]).decode("utf-8")
+            username, password = raw.split(":", 1)
+            return username == DASHBOARD_USERNAME and password == DASHBOARD_PASSWORD
+        except Exception:
+            return False
+
+    def create_session():
+        token = secrets.token_urlsafe(32)
+        ACTIVE_SESSIONS[token] = time.time() + SESSION_TTL_SECONDS
+        return token
+
+
+    def validate_session(token):
+        expires_at = ACTIVE_SESSIONS.get(token)
+        if not expires_at:
+            return False
+        if expires_at < time.time():
+            ACTIVE_SESSIONS.pop(token, None)
+            return False
+        ACTIVE_SESSIONS[token] = time.time() + SESSION_TTL_SECONDS
+        return True
+
+
+    def clear_session(headers):
+        cookie_header = headers.get("Cookie", "")
+        if not cookie_header:
+            return
+        try:
+            cookie = SimpleCookie()
+            cookie.load(cookie_header)
+            token = cookie.get(SESSION_COOKIE_NAME)
+            if token:
+                ACTIVE_SESSIONS.pop(token.value, None)
+        except Exception:
+            return
+
+
+    def is_client_disconnect(exc):
+        return isinstance(exc, (BrokenPipeError, ConnectionResetError))
+
+
+    def json_response(handler, code, payload):
+        data = json.dumps(payload).encode("utf-8")
+        try:
+            handler.send_response(code)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(data)))
+            handler.end_headers()
+            handler.wfile.write(data)
+        except Exception as exc:
+            if not is_client_disconnect(exc):
+                raise
+
+    # -----------------------------------------------------------------------
+    # HTTP handler
+    # -----------------------------------------------------------------------
+
+    class Handler(BaseHTTPRequestHandler):
+
+        def log_message(self, fmt, *args):  # silence request logs
+            pass
+
+        def do_OPTIONS(self):
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.end_headers()
+
+        def do_GET(self):
+            path = urlparse(self.path).path
+
+            if path == "/":
+                return self.serve_ui()
+
+            if path.startswith("/api/") and not auth_ok(self.headers):
+                return json_response(self, 401, {"error": "Unauthorized"})
+
+            if path == "/api/health":
+                return json_response(self, 200, {"ok": True, "time": now_epoch_ms()})
+
+            if path == "/api/targets":
+                return json_response(self, 200, {"targets": [
+                    {"id": t["id"], "name": t["name"],
+                     "namespace": t["namespace"], "description": t.get("description", "")}
+                    for t in TARGETS.values()
+                ]})
+
+            parts = path.split("/")
+            if len(parts) >= 4 and parts[1] == "api" and parts[2] == "targets":
+                target_id = parts[3]
+                target = TARGETS.get(target_id)
+                if not target:
+                    return json_response(self, 404, {"error": "Target not found"})
+                action = parts[4] if len(parts) > 4 else ""
+
+                if action == "status":
+                    try:
+                        return json_response(self, 200, build_target_status(target))
+                    except Exception as exc:
+                        if is_client_disconnect(exc):
+                            return
+                        return json_response(self, 500, {"error": str(exc)})
+
+            return json_response(self, 404, {"error": "Not found"})
+
+        def do_POST(self):
+            path = urlparse(self.path).path
+
+            if path == "/api/login":
+                length = int(self.headers.get("Content-Length", "0"))
+                body = self.rfile.read(length) if length > 0 else b"{}"
+                payload = json.loads(body.decode("utf-8"))
+                username = payload.get("username", "")
+                password = payload.get("password", "")
+                if username != DASHBOARD_USERNAME or password != DASHBOARD_PASSWORD:
+                    return json_response(self, 401, {"error": "Invalid credentials"})
+
+                token = create_session()
+                data = json.dumps({"ok": True, "time": now_epoch_ms()}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header(
+                    "Set-Cookie",
+                    f"{SESSION_COOKIE_NAME}={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age={SESSION_TTL_SECONDS}",
+                )
+                self.end_headers()
+                try:
+                    self.wfile.write(data)
+                except Exception as exc:
+                    if not is_client_disconnect(exc):
+                        raise
+                return
+
+            if path == "/api/logout":
+                clear_session(self.headers)
+                data = json.dumps({"ok": True}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header(
+                    "Set-Cookie",
+                    f"{SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+                )
+                self.end_headers()
+                try:
+                    self.wfile.write(data)
+                except Exception as exc:
+                    if not is_client_disconnect(exc):
+                        raise
+                return
+
+            if path.startswith("/api/") and not auth_ok(self.headers):
+                return json_response(self, 401, {"error": "Unauthorized"})
+
+            parts = path.split("/")
+            if len(parts) >= 5 and parts[1] == "api" and parts[2] == "targets" and parts[4] == "resources":
+                target_id = parts[3]
+                target = TARGETS.get(target_id)
+                if not target:
+                    return json_response(self, 404, {"error": "Target not found"})
+                length = int(self.headers.get("Content-Length", "0"))
+                body = self.rfile.read(length) if length > 0 else b"{}"
+                payload = json.loads(body.decode("utf-8"))
+                if not any(payload.get(k) for k in ["cpuRequest", "cpuLimit", "memoryRequest", "memoryLimit", "storage"]):
+                    return json_response(self, 400, {"error": "Provide at least one resource field"})
+                try:
+                    result = apply_ordered_update(target, payload)
+                    return json_response(self, 200 if result["success"] else 409, result)
+                except Exception as exc:
+                    return json_response(self, 500, {"error": str(exc)})
+
+            return json_response(self, 404, {"error": "Not found"})
+
+        def serve_ui(self):
+            html = """<!doctype html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Redis Fleet Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{margin:0;height:100%}
+    body{
+      font-family:'Inter',system-ui,sans-serif;font-size:14px;
+      color:#e2e8f0;background:#070d1a;
+      display:grid;grid-template-columns:260px 1fr;min-height:100vh;
+    }
+    /* SIDEBAR */
+    aside{
+      background:#0c1220;border-right:1px solid rgba(148,163,184,0.1);
+      display:flex;flex-direction:column;height:100vh;position:sticky;top:0;overflow:hidden;
+    }
+    .sb-head{padding:18px 14px 12px;border-bottom:1px solid rgba(148,163,184,0.1)}
+    .sb-logo{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+    .sb-dot{width:10px;height:10px;border-radius:50%;background:#f97316;box-shadow:0 0 8px rgba(249,115,22,0.55)}
+    .sb-title{font-size:15px;font-weight:700;letter-spacing:-0.01em}
+    .sb-sub{font-size:11px;color:#475569}
+    .sb-list{flex:1;overflow-y:auto;padding:6px 8px}
+    .ci{
+      display:flex;align-items:center;gap:10px;padding:9px 10px;
+      border-radius:8px;cursor:pointer;margin-bottom:2px;
+      transition:background 0.15s;border:1px solid transparent;
+    }
+    .ci:hover{background:rgba(148,163,184,0.06)}
+    .ci.active{background:rgba(249,115,22,0.1);border-color:rgba(249,115,22,0.28)}
+    .ci-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .ci-dot.ok{background:#34d399;box-shadow:0 0 4px rgba(52,211,153,0.5)}
+    .ci-dot.warn{background:#f59e0b;box-shadow:0 0 4px rgba(245,158,11,0.5)}
+    .ci-dot.bad{background:#f87171;box-shadow:0 0 4px rgba(248,113,113,0.5)}
+    .ci-dot.unk{background:#475569}
+    .ci-info{flex:1;min-width:0}
+    .ci-name{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ci-ns{font-size:11px;color:#475569}
+    .sb-foot{padding:10px 14px;border-top:1px solid rgba(148,163,184,0.08);font-size:11px;color:#334155}
+    /* MAIN */
+    #app{display:flex;flex-direction:column;min-height:100vh;overflow:auto}
+    /* HEADER */
+    #hdr{padding:18px 22px 0;display:flex;flex-direction:column;gap:10px}
+    .hdr-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    .hdr-title{font-size:20px;font-weight:700;letter-spacing:-0.02em}
+    .hdr-ns{font-size:12px;color:#475569;margin-top:2px}
+    .hdr-ts{font-size:11px;color:#334155}
+    .hdr-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+    .hdr-controls{display:flex;align-items:center;gap:8px}
+    .ctl{
+      background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.18);
+      color:#cbd5e1;border-radius:8px;padding:5px 9px;font-size:12px;
+    }
+    .ctl-btn{cursor:pointer}
+    .pills{display:flex;gap:6px;flex-wrap:wrap}
+    .pill{
+      display:inline-flex;align-items:center;gap:5px;
+      padding:3px 9px;background:rgba(148,163,184,0.07);
+      border:1px solid rgba(148,163,184,0.12);border-radius:20px;font-size:12px;
+    }
+    .pdot{width:6px;height:6px;border-radius:50%}
+    /* TABS */
+    .tabs{display:flex;padding:14px 22px 0;border-bottom:1px solid rgba(148,163,184,0.1)}
+    .tab{
+      background:none;border:none;color:#475569;
+      font-family:inherit;font-size:13px;font-weight:500;
+      padding:7px 16px;cursor:pointer;
+      border-bottom:2px solid transparent;margin-bottom:-1px;
+      transition:color 0.15s,border-color 0.15s;
+    }
+    .tab:hover{color:#cbd5e1}
+    .tab.on{color:#f97316;border-bottom-color:#f97316}
+    .panel{display:none;padding:18px 22px}
+    .panel.on{display:block}
+    /* CARDS */
+    .card{background:#0c1220;border:1px solid rgba(148,163,184,0.1);border-radius:12px;padding:14px}
+    .card-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:#475569;margin-bottom:12px}
+    /* GRID */
+    .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+    .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .span2{grid-column:span 2}
+    .spanfull{grid-column:1/-1}
+    /* TABLE */
+    table{width:100%;border-collapse:collapse}
+    thead th{
+      text-align:left;font-size:11px;font-weight:600;
+      text-transform:uppercase;letter-spacing:0.07em;color:#475569;
+      padding:7px 10px;border-bottom:1px solid rgba(148,163,184,0.1);
+    }
+    tbody td{padding:9px 10px;border-bottom:1px solid rgba(148,163,184,0.06);font-size:13px}
+    tbody tr:last-child td{border-bottom:none}
+    tbody tr:hover td{background:rgba(148,163,184,0.025)}
+    .mono{font-family:'JetBrains Mono',monospace;font-size:12px}
+    /* BADGES */
+    .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
+    .ok{background:rgba(52,211,153,0.12);color:#34d399}
+    .warn{background:rgba(245,158,11,0.12);color:#f59e0b}
+    .bad{background:rgba(248,113,113,0.12);color:#f87171}
+    .gray{background:rgba(148,163,184,0.1);color:#64748b}
+    .blue{background:rgba(96,165,250,0.12);color:#60a5fa}
+    /* BARS */
+    .bar-wrap{min-width:90px}
+    .bar-lbl{font-size:11px;color:#94a3b8;white-space:nowrap}
+    .bar-track{background:rgba(148,163,184,0.1);border-radius:3px;height:4px;overflow:hidden;margin-top:3px}
+    .bar-fill{height:100%;border-radius:3px;transition:width 0.4s}
+    .bar-ok{background:#34d399}
+    .bar-warn{background:#f59e0b}
+    .bar-bad{background:#f87171}
+    /* METRIC TILES */
+    .tile{padding:12px 14px}
+    .tile-lbl{font-size:11px;color:#475569;font-weight:500;text-transform:uppercase;letter-spacing:0.06em}
+    .tile-val{font-size:22px;font-weight:700;margin:3px 0 1px;letter-spacing:-0.02em}
+    .tile-sub{font-size:11px;color:#475569}
+    /* FORM */
+    .fg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .ff label{display:block;font-size:11px;color:#475569;font-weight:500;margin-bottom:3px;text-transform:uppercase;letter-spacing:0.04em}
+    .ff input{
+      width:100%;background:rgba(148,163,184,0.07);
+      border:1px solid rgba(148,163,184,0.14);border-radius:8px;
+      color:#e2e8f0;padding:7px 10px;
+      font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;
+      transition:border-color 0.15s;
+    }
+    .ff input:focus{border-color:#f97316}
+    .ff .hint{font-size:10px;color:#334155;margin-top:2px}
+    .btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:8px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:opacity 0.15s}
+    .btn:hover{opacity:0.88}
+    .btn-p{background:#f97316;color:#0a0f1a}
+    .btn-s{background:rgba(148,163,184,0.1);color:#e2e8f0;border:1px solid rgba(148,163,184,0.14)}
+    #rollout-log{
+      display:none;background:#04080f;border:1px solid rgba(148,163,184,0.1);
+      border-radius:8px;padding:10px 12px;
+      font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;
+      white-space:pre-wrap;max-height:220px;overflow-y:auto;
+      color:#64748b;margin-top:12px;
+    }
+    /* UTILS */
+    .sp{height:12px}
+    .muted{color:#475569}
+    #no-data{text-align:center;padding:60px 20px;color:#334155}
+    .login-wrap{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+      background:radial-gradient(circle at 20% 20%, rgba(249,115,22,0.12), transparent 35%),
+        radial-gradient(circle at 80% 10%, rgba(96,165,250,0.10), transparent 35%),
+        rgba(7,13,26,0.93);
+      z-index:1000;
+    }
+    .login-card{
+      width:min(420px,92vw);background:#0c1220;border:1px solid rgba(148,163,184,0.22);
+      border-radius:14px;padding:20px 18px;box-shadow:0 20px 50px rgba(2,6,23,0.5);
+    }
+    .login-title{font-size:20px;font-weight:700;letter-spacing:-0.02em;margin-bottom:4px}
+    .login-sub{font-size:12px;color:#64748b;margin-bottom:14px}
+    .login-err{min-height:18px;font-size:12px;color:#f87171;margin-top:8px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media(max-width:860px){
+      body{grid-template-columns:1fr}
+      aside{height:auto;position:static}
+      .g2,.g3,.g4{grid-template-columns:1fr}
+      .span2{grid-column:span 1}
+    }
+    </style>
+    </head>
+    <body>
+    <div class="login-wrap" id="login-wrap">
+      <div class="login-card">
+        <div class="login-title">Redis Fleet Login</div>
+        <div class="login-sub">Sign in to view cluster dashboards and rollout controls.</div>
+        <div class="ff" style="margin-bottom:10px"><label>Username</label><input id="login-user" autocomplete="username"/></div>
+        <div class="ff" style="margin-bottom:2px"><label>Password</label><input id="login-pass" type="password" autocomplete="current-password"/></div>
+        <button class="btn btn-p" style="margin-top:10px;width:100%;justify-content:center" onclick="submitLogin()">Sign in</button>
+        <div class="login-err" id="login-err"></div>
+      </div>
+    </div>
+    <aside>
+      <div class="sb-head">
+        <div class="sb-logo"><div class="sb-dot"></div><div class="sb-title">Redis Fleet</div></div>
+        <div class="sb-sub">Multi-cluster ops dashboard</div>
+      </div>
+      <div class="sb-list" id="sb-list"></div>
+      <div class="sb-foot" id="sb-foot">Auto-refresh every 5s &middot; replicas-first rollout</div>
+    </aside>
+
+    <div id="app">
+      <div id="hdr">
+        <div class="hdr-top">
+          <div>
+            <div class="hdr-title" id="hdr-name">Select a cluster</div>
+            <div class="hdr-ns" id="hdr-ns"></div>
+          </div>
+          <div class="hdr-right">
+            <div class="hdr-controls">
+              <label for="refresh-ms" class="muted" style="font-size:11px">Refresh</label>
+              <select id="refresh-ms" class="ctl" onchange="onRefreshChange()">
+                <option value="3000">3s</option>
+                <option value="5000" selected>5s</option>
+                <option value="10000">10s</option>
+                <option value="30000">30s</option>
+              </select>
+              <button class="ctl ctl-btn" onclick="manualRefresh()">Refresh now</button>
+              <button class="ctl ctl-btn" onclick="logout()">Logout</button>
+            </div>
+            <div class="hdr-ts" id="hdr-ts"></div>
+          </div>
+        </div>
+        <div class="pills" id="hdr-pills"></div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab on" onclick="switchTab('overview',this)">Overview</button>
+        <button class="tab" onclick="switchTab('metrics',this)">Metrics</button>
+        <button class="tab" onclick="switchTab('resources',this)">Resources</button>
+      </div>
+
+      <!-- OVERVIEW -->
+      <div class="panel on" id="panel-overview">
+        <div id="no-data">Select a cluster from the left panel</div>
+        <div id="ov-content" style="display:none">
+          <div class="card spanfull">
+            <div class="card-title">Pods</div>
+            <table>
+              <thead><tr>
+                <th>Pod</th><th>Node</th><th>Phase</th><th>Ready</th><th>Role</th>
+                <th>CPU (current&nbsp;/&nbsp;limit)</th><th>Memory (current&nbsp;/&nbsp;limit)</th>
+              </tr></thead>
+              <tbody id="pod-rows"></tbody>
+            </table>
+          </div>
+          <div class="sp"></div>
+          <div class="card">
+            <div class="card-title">Replication Health</div>
+            <table>
+              <thead><tr>
+                <th>StatefulSet</th><th>Redis Role</th><th>Link Status</th><th>Lag (s)</th><th>Redis Version</th><th>Uptime</th>
+              </tr></thead>
+              <tbody id="repl-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- METRICS -->
+      <div class="panel" id="panel-metrics">
+        <div id="metrics-content"><p class="muted">Select a cluster to view metrics.</p></div>
+      </div>
+
+      <!-- RESOURCES -->
+      <div class="panel" id="panel-resources">
+        <div class="card">
+          <div class="card-title">Current Resource Config</div>
+          <table>
+            <thead><tr>
+              <th>StatefulSet</th><th>Ready</th>
+              <th>CPU Request</th><th>CPU Limit</th>
+              <th>Mem Request</th><th>Mem Limit</th>
+            </tr></thead>
+            <tbody id="sts-rows"></tbody>
+          </table>
+        </div>
+        <div class="sp"></div>
+        <div class="card">
+          <div class="card-title">Update Resources</div>
+          <p class="muted" style="margin:0 0 4px;font-size:12px">
+            Rollout order: <strong style="color:#e2e8f0">all replicas first &rarr; primary last</strong>.
+            Each StatefulSet waits to become Ready before the next one is updated.
+          </p>
+          <div class="fg">
+            <div class="ff"><label>CPU Request</label><input id="f-cpuReq" placeholder="e.g. 500m"/></div>
+            <div class="ff"><label>CPU Limit</label><input id="f-cpuLim" placeholder="e.g. 2000m"/></div>
+            <div class="ff"><label>Memory Request</label><input id="f-memReq" placeholder="e.g. 4Gi"/></div>
+            <div class="ff"><label>Memory Limit</label><input id="f-memLim" placeholder="e.g. 8Gi"/></div>
+            <div class="ff"><label>Storage (PVC)</label><input id="f-sto" placeholder="e.g. 100Gi"/><div class="hint">Requires CSI resize support</div></div>
+            <div class="ff"><label>Rollout Timeout (s)</label><input id="f-to" value="300"/></div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+            <button class="btn btn-p" onclick="applyUpdate()">Apply Ordered Rollout</button>
+            <button class="btn btn-s" onclick="clearForm()">Clear</button>
+            <span id="apply-st" style="font-size:12px;color:#475569"></span>
+          </div>
+          <pre id="rollout-log"></pre>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    let targets = [];
+    let current = null;
+    let cache = null;
+    let timer = null;
+    let tab = localStorage.getItem('rfd_tab') || 'overview';
+    let refreshMs = parseInt(localStorage.getItem('rfd_refresh_ms') || '5000', 10);
+    const targetHealth = {};
+    const targetErrors = {};
+
+    function esc(s){return(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+    async function api(path, opts = {}) {
+      const req = { credentials: 'same-origin', ...opts };
+      const r = await fetch(path, req);
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const err = new Error(b.error || `HTTP ${r.status}`);
+        err.status = r.status;
+        throw err;
+      }
+      return b;
+    }
+    function fmt_cpu(m){if(m===null||m===undefined)return'—';return m>=1000?`${(m/1000).toFixed(2)} cores`:`${Math.round(m)}m`}
+    function fmt_mem(m){if(m===null||m===undefined)return'—';return m>=1024?`${(m/1024).toFixed(2)} GiB`:`${Math.round(m)} MiB`}
+    function parse_lim_cpu(s){if(!s)return null;s=String(s).trim();if(s.endsWith('m'))return parseFloat(s);return parseFloat(s)*1000}
+    function parse_lim_mem(s){
+      if(!s)return null;s=String(s).trim();
+      if(s.endsWith('Gi'))return parseFloat(s)*1024;
+      if(s.endsWith('Mi'))return parseFloat(s);
+      if(s.endsWith('G'))return parseFloat(s)*1024;
+      if(s.endsWith('M'))return parseFloat(s);
+      return null;
+    }
+    function bar(cur,limStr,fmtFn,parseFn){
+      const lim=parseFn(limStr);
+      if(cur===null||cur===undefined)return'<span class="muted">—</span>';
+      const lbl=`${esc(fmtFn(cur))} / ${esc(limStr||'?')}`;
+      if(!lim)return`<div class="bar-wrap"><div class="bar-lbl">${lbl}</div></div>`;
+      const pct=Math.min(Math.round(cur/lim*100),100);
+      const cls=pct>80?'bar-bad':pct>60?'bar-warn':'bar-ok';
+      return`<div class="bar-wrap"><div class="bar-lbl">${lbl}</div><div class="bar-track"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div></div>`;
+    }
+    function roleBadge(r){
+      if(r==='master')return'<span class="badge ok">master</span>';
+      if(r==='slave')return'<span class="badge warn">replica</span>';
+      return`<span class="badge gray">${esc(r||'unknown')}</span>`;
+    }
+    function readyBadge(ok){return ok?'<span class="badge ok">Ready</span>':'<span class="badge bad">Not Ready</span>'}
+    function fmtUptime(s){if(!s)return'—';const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);return d?`${d}d ${h}h`:h?`${h}h ${m}m`:`${m}m`}
+    function clusterHealth(pods){
+      if(!pods||!pods.length)return'unk';
+      const allReady=pods.every(p=>p.ready);
+      const hasMaster=pods.some(p=>p.redis&&p.redis.role==='master');
+      if(allReady&&hasMaster)return'ok';
+      if(hasMaster)return'warn';
+      return'bad';
+    }
+    function showNoData(msg){
+      document.getElementById('no-data').style.display='block';
+      document.getElementById('no-data').textContent=msg;
+      document.getElementById('ov-content').style.display='none';
+    }
+    function updateRefreshHint(){
+      const seconds=Math.round(refreshMs/1000);
+      document.getElementById('sb-foot').innerHTML=`Auto-refresh every ${seconds}s &middot; replicas-first rollout`;
+    }
+    function startRefreshTimer(){
+      if(timer)clearInterval(timer);
+      if(current)timer=setInterval(refresh,refreshMs);
+      updateRefreshHint();
+    }
+    function onRefreshChange(){
+      const v=parseInt(document.getElementById('refresh-ms').value,10);
+      if(!Number.isFinite(v)||v<1000)return;
+      refreshMs=v;
+      localStorage.setItem('rfd_refresh_ms',String(refreshMs));
+      startRefreshTimer();
+    }
+
+    async function manualRefresh(){
+      await refresh();
+    }
+
+    function renderSidebar(){
+      document.getElementById('sb-list').innerHTML=targets.map(t=>{
+        const h=targetErrors[t.id]?'bad':(targetHealth[t.id]||'unk');
+        return `<div class="ci ${current&&current.id===t.id?'active':''}" onclick="select('${t.id}')">
+          <div class="ci-dot ${h}"></div>
+          <div class="ci-info">
+            <div class="ci-name">${esc(t.name)}</div>
+            <div class="ci-ns">${esc(t.namespace)}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderHeader(d){
+      document.getElementById('hdr-name').textContent=d?d.target.name:'Select a cluster';
+      document.getElementById('hdr-ns').textContent=d?`namespace: ${d.target.namespace}`:'';
+      document.getElementById('hdr-ts').textContent=d?`Refreshed ${new Date(d.time).toLocaleTimeString()}`:'';
+      if(!d){document.getElementById('hdr-pills').innerHTML='';return}
+      const pods=d.pods||[];
+      const allReady=pods.every(p=>p.ready);
+      const master=pods.filter(p=>p.redis&&p.redis.role==='master');
+      const replicas=pods.filter(p=>p.redis&&p.redis.role==='slave');
+      document.getElementById('hdr-pills').innerHTML=`
+        <div class="pill"><div class="pdot" style="background:${allReady?'#34d399':'#f59e0b'}"></div>${allReady?'Healthy':'Degraded'}</div>
+        <div class="pill">${pods.length} pod${pods.length!==1?'s':''}</div>
+        ${master.length?`<div class="pill"><span style="color:#34d399">●</span> ${master.length} master</div>`:''}
+        ${replicas.length?`<div class="pill"><span style="color:#94a3b8">●</span> ${replicas.length} replica${replicas.length>1?'s':''}</div>`:''}
+        ${d.target.description?`<div class="pill">${esc(d.target.description)}</div>`:''}
+      `;
+    }
+
+    function renderOverview(d){
+      document.getElementById('no-data').style.display='none';
+      document.getElementById('ov-content').style.display='block';
+      const pods=d.pods||[];
+      document.getElementById('pod-rows').innerHTML=pods.map(p=>{
+        const role=(p.labels&&p.labels.role)||(p.redis&&p.redis.role)||'-';
+        const cpuBar=bar(p.cpu_milli,p.cpuLimit,fmt_cpu,parse_lim_cpu);
+        const memBar=bar(p.memory_mib,p.memoryLimit,fmt_mem,parse_lim_mem);
+        return`<tr>
+          <td class="mono">${esc(p.name)}</td>
+          <td class="mono muted" style="font-size:11px">${esc(p.nodeName||'—')}</td>
+          <td>${esc(p.phase)}</td>
+          <td>${readyBadge(p.ready)}</td>
+          <td>${roleBadge(role)}</td>
+          <td>${cpuBar}</td>
+          <td>${memBar}</td>
+        </tr>`;
+      }).join('');
+      document.getElementById('repl-rows').innerHTML=pods.map(p=>{
+        const ri=p.redis||{};
+        const lk=ri.master_link_status;
+        const linkBadge=ri.role==='master'
+          ?'<span class="badge blue">n/a</span>'
+          :lk==='up'?'<span class="badge ok">up</span>':'<span class="badge bad">down</span>';
+        const lag=ri.role==='master'?'—':String(ri.master_last_io_seconds_ago??'—');
+        const lagClass=parseInt(lag,10)>5?'warn':'';
+        return`<tr>
+          <td class="mono">${esc(p.statefulSet)}</td>
+          <td>${roleBadge(ri.role)}</td>
+          <td>${linkBadge}</td>
+          <td class="${lagClass}">${esc(lag)}</td>
+          <td class="mono muted">${esc(ri.version||'—')}</td>
+          <td class="muted">${fmtUptime(ri.uptime_seconds)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderMetrics(d){
+      const pods=d.pods||[];
+      if(!pods.length){document.getElementById('metrics-content').innerHTML='<p class="muted">No data.</p>';return}
+      document.getElementById('metrics-content').innerHTML=pods.map(p=>{
+        const ri=p.redis||{};
+        const hits=ri.keyspace_hits||0,misses=ri.keyspace_misses||0;
+        const hr=ri.hit_ratio;
+        const hrClass=hr===null?'':(hr>90?'ok':hr>70?'warn':'bad');
+        const memPct=(ri.maxmemory_bytes&&ri.used_memory_bytes)?Math.round(ri.used_memory_bytes/ri.maxmemory_bytes*100):null;
+        const cpuPct=p.cpu_milli!==null&&parse_lim_cpu(p.cpuLimit)?Math.round(p.cpu_milli/parse_lim_cpu(p.cpuLimit)*100):null;
+        const memPodPct=p.memory_mib!==null&&parse_lim_mem(p.memoryLimit)?Math.round(p.memory_mib/parse_lim_mem(p.memoryLimit)*100):null;
+        const mkBar=(pct)=>{if(pct===null)return'';const cls=pct>80?'bar-bad':pct>60?'bar-warn':'bar-ok';return`<div class="bar-track" style="margin-top:5px"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div><div class="tile-sub">${pct}% of limit</div>`};
+        return`<div style="margin-bottom:14px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px">${esc(p.statefulSet)} - ${roleBadge(ri.role||'unknown')}</div>
+          <div class="g4" style="margin-bottom:10px">
+            <div class="card tile">
+              <div class="tile-lbl">Redis Memory</div>
+              <div class="tile-val">${esc(ri.used_memory_human||'—')}</div>
+              <div class="tile-sub">Peak: ${esc(ri.used_memory_peak_human||'—')}</div>
+              ${mkBar(memPct)}
+            </div>
+            <div class="card tile">
+              <div class="tile-lbl">Ops / sec</div>
+              <div class="tile-val">${(ri.ops_per_sec??0).toLocaleString()}</div>
+              <div class="tile-sub">Instantaneous</div>
+            </div>
+            <div class="card tile">
+              <div class="tile-lbl">Clients</div>
+              <div class="tile-val">${(ri.connected_clients??0).toLocaleString()}</div>
+              <div class="tile-sub">Connected</div>
+            </div>
+            <div class="card tile">
+              <div class="tile-lbl">Hit Ratio</div>
+              <div class="tile-val ${hrClass}">${hr!==null?hr+'%':'—'}</div>
+              <div class="tile-sub">${hits.toLocaleString()} hits &middot; ${misses.toLocaleString()} misses</div>
+            </div>
+          </div>
+          <div class="g4">
+            <div class="card tile">
+              <div class="tile-lbl">Total Keys</div>
+              <div class="tile-val" style="font-size:18px">${(ri.total_keys??0).toLocaleString()}</div>
+              <div class="tile-sub">Across all DBs</div>
+            </div>
+            <div class="card tile">
+              <div class="tile-lbl">Uptime</div>
+              <div class="tile-val" style="font-size:18px">${fmtUptime(ri.uptime_seconds)}</div>
+            </div>
+            <div class="card tile">
+              <div class="tile-lbl">Pod CPU</div>
+              <div class="tile-val" style="font-size:18px">${esc(fmt_cpu(p.cpu_milli))}</div>
+              <div class="tile-sub">of ${esc(p.cpuLimit||'?')}</div>
+              ${mkBar(cpuPct)}
+            </div>
+            <div class="card tile">
+              <div class="tile-lbl">Pod Memory</div>
+              <div class="tile-val" style="font-size:18px">${esc(fmt_mem(p.memory_mib))}</div>
+              <div class="tile-sub">of ${esc(p.memoryLimit||'?')}</div>
+              ${mkBar(memPodPct)}
+            </div>
+          </div>
+          <hr style="border:none;border-top:1px solid rgba(148,163,184,0.08);margin:14px 0 0">
+        </div>`;
+      }).join('');
+    }
+
+    function renderResources(d){
+      const list=d.statefulSets||[];
+      document.getElementById('sts-rows').innerHTML=list.map(s=>{
+        const r=s.resources.requests||{},l=s.resources.limits||{};
+        return`<tr>
+          <td class="mono">${esc(s.name)}</td>
+          <td>${s.readyReplicas} / 1</td>
+          <td class="mono">${esc(r.cpu||'—')}</td><td class="mono">${esc(l.cpu||'—')}</td>
+          <td class="mono">${esc(r.memory||'—')}</td><td class="mono">${esc(l.memory||'—')}</td>
+        </tr>`;
+      }).join('');
+      if(d.pods&&d.pods.length){
+        const p=d.pods[0];
+        if(p.cpuRequest)document.getElementById('f-cpuReq').placeholder=`current: ${p.cpuRequest}`;
+        if(p.cpuLimit)document.getElementById('f-cpuLim').placeholder=`current: ${p.cpuLimit}`;
+        if(p.memoryRequest)document.getElementById('f-memReq').placeholder=`current: ${p.memoryRequest}`;
+        if(p.memoryLimit)document.getElementById('f-memLim').placeholder=`current: ${p.memoryLimit}`;
+      }
+    }
+
+    function switchTab(name,btn){
+      tab=name;
+      localStorage.setItem('rfd_tab',tab);
+      document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+      if(btn)btn.classList.add('on');
+      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+      document.getElementById(`panel-${name}`).classList.add('on');
+      if(cache){
+        if(name==='overview')renderOverview(cache);
+        if(name==='metrics')renderMetrics(cache);
+        if(name==='resources')renderResources(cache);
+      }
+    }
+
+    async function refresh(){
+      if(!current)return;
+      try{
+        const d=await api(`/api/targets/${current.id}/status`);
+        cache=d;
+        targetHealth[current.id]=clusterHealth(d.pods||[]);
+        delete targetErrors[current.id];
+        renderHeader(d);
+        renderSidebar();
+        if(tab==='overview')renderOverview(d);
+        if(tab==='metrics')renderMetrics(d);
+        if(tab==='resources')renderResources(d);
+      }catch(e){
+        if(e.status===401){
+          showLogin('Session expired. Please sign in again.');
+          return;
+        }
+        targetErrors[current.id]=e.message;
+        targetHealth[current.id]='bad';
+        renderSidebar();
+        document.getElementById('hdr-ts').textContent=`Error: ${e.message}`;
+        showNoData(`Unable to load ${current.name}: ${e.message}`);
+      }
+    }
+
+    async function select(id){
+      current=targets.find(t=>t.id===id)||null;
+      if(!current)return;
+      localStorage.setItem('rfd_target_id',current.id);
+      cache=null;
+      renderSidebar();
+      renderHeader(null);
+      showNoData(`Loading ${current.name}...`);
+      await refresh();
+      startRefreshTimer();
+    }
+
+    async function applyUpdate(){
+      if(!current)return;
+      const fv=id=>document.getElementById(id).value.trim();
+      const payload={};
+      if(fv('f-cpuReq'))payload.cpuRequest=fv('f-cpuReq');
+      if(fv('f-cpuLim'))payload.cpuLimit=fv('f-cpuLim');
+      if(fv('f-memReq'))payload.memoryRequest=fv('f-memReq');
+      if(fv('f-memLim'))payload.memoryLimit=fv('f-memLim');
+      if(fv('f-sto'))payload.storage=fv('f-sto');
+      if(fv('f-to'))payload.timeoutSeconds=fv('f-to');
+      if(!payload.cpuRequest&&!payload.cpuLimit&&!payload.memoryRequest&&!payload.memoryLimit&&!payload.storage){
+        document.getElementById('apply-st').textContent='Fill in at least one field.';
+        return;
+      }
+      const log=document.getElementById('rollout-log');
+      log.style.display='block';
+      log.textContent=`[${new Date().toLocaleTimeString()}] Starting ordered rollout...\n`;
+      document.getElementById('apply-st').textContent='Rolling...';
+      try{
+        const res=await api(`/api/targets/${current.id}/resources`,{
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+        });
+        for(const s of(res.steps||[])){
+          const icon=s.rolledOut?'OK':'FAIL';
+          log.textContent+=`[${new Date().toLocaleTimeString()}] ${icon} ${s.statefulSet} patched:${s.patched} rolledOut:${s.rolledOut}${s.error?' | '+s.error:''}\n`;
+        }
+        document.getElementById('apply-st').textContent=res.success?'Rollout complete':'Rollout failed';
+        await refresh();
+      }catch(e){
+        log.textContent+=`Error: ${e.message}\n`;
+        document.getElementById('apply-st').textContent=`Error: ${e.message}`;
+      }
+    }
+
+    function clearForm(){
+      ['f-cpuReq','f-cpuLim','f-memReq','f-memLim','f-sto'].forEach(id=>document.getElementById(id).value='');
+      document.getElementById('f-to').value='300';
+      document.getElementById('rollout-log').style.display='none';
+      document.getElementById('rollout-log').textContent='';
+      document.getElementById('apply-st').textContent='';
+    }
+
+    function showLogin(msg=''){
+      if(timer)clearInterval(timer);
+      document.getElementById('login-wrap').style.display='flex';
+      document.getElementById('login-err').textContent=msg;
+    }
+    function hideLogin(){
+      document.getElementById('login-wrap').style.display='none';
+      document.getElementById('login-err').textContent='';
+    }
+
+    async function submitLogin(){
+      const username=document.getElementById('login-user').value.trim();
+      const password=document.getElementById('login-pass').value;
+      document.getElementById('login-err').textContent='';
+      try{
+        await api('/api/login',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({username,password})
+        });
+        hideLogin();
+        await boot();
+      }catch(e){
+        document.getElementById('login-err').textContent=e.message;
+      }
+    }
+
+    async function logout(){
+      try{await api('/api/logout',{method:'POST'});}catch(_e){}
+      showNoData('Signed out. Sign in to continue.');
+      showLogin('');
+    }
+
+    async function boot(){
+      const selectEl=document.getElementById('refresh-ms');
+      selectEl.value=String(refreshMs);
+      updateRefreshHint();
+      document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+      const tabBtn=[...document.querySelectorAll('.tab')].find(b=>b.textContent.toLowerCase()===tab);
+      switchTab(tab, tabBtn || document.querySelector('.tab'));
+      try{
+        const d=await api('/api/targets');
+        targets=d.targets||[];
+        renderSidebar();
+        if(!targets.length){
+          showNoData('No targets configured.');
+          return;
+        }
+        const savedId=localStorage.getItem('rfd_target_id');
+        const initial=targets.find(t=>t.id===savedId)||targets[0];
+        await select(initial.id);
+      }catch(e){
+        if(e.status===401){
+          showLogin('Please sign in to continue.');
+          return;
+        }
+        document.getElementById('hdr-name').textContent=`Failed: ${e.message}`;
+      }
+    }
+
+    document.getElementById('login-user').addEventListener('keydown',e=>{if(e.key==='Enter')submitLogin()});
+    document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')submitLogin()});
+
+    boot();
+    </script>
+    </body>
+    </html>
+    """
+            data = html.encode("utf-8")
+            try:
+              self.send_response(200)
+              self.send_header("Content-Type", "text/html; charset=utf-8")
+              self.send_header("Content-Length", str(len(data)))
+              self.end_headers()
+              self.wfile.write(data)
+            except Exception as exc:
+              if not is_client_disconnect(exc):
+                raise
+
+
+    def main():
+        global TARGETS
+        TARGETS = load_targets()
+        server = ThreadingHTTPServer((LISTEN_HOST, LISTEN_PORT), Handler)
+        print(f"Redis Fleet Dashboard listening on {LISTEN_HOST}:{LISTEN_PORT}")
+        server.serve_forever()
+
+
+    if __name__ == "__main__":
+        main()
+  targets.json: |-
+    {
+      "targets": [
+        {
+          "id": "cache",
+          "name": "Redis Cache",
+          "description": "Cache workload - allkeys-lru",
+          "namespace": "redis-fyno",
+          "primaryStatefulSet": "redis-cache-0",
+          "replicaStatefulSets": ["redis-cache-1"],
+          "redisContainerName": "redis",
+          "pvcTemplateName": "data",
+          "redisPort": 6379,
+          "podSelectorLabel": { "key": "app", "value": "redis-cache" },
+          "redisPasswordSecret": {
+            "name": "redis-cache-secret",
+            "key": "redis-password"
+          }
+        },
+        {
+          "id": "queue",
+          "name": "Redis Queue",
+          "description": "Job queue workload - noeviction",
+          "namespace": "redis-fyno",
+          "primaryStatefulSet": "redis-queue-0",
+          "replicaStatefulSets": ["redis-queue-1"],
+          "redisContainerName": "redis",
+          "pvcTemplateName": "data",
+          "redisPort": 6379,
+          "podSelectorLabel": { "key": "app", "value": "redis-queue" },
+          "redisPasswordSecret": {
+            "name": "redis-queue-secret",
+            "key": "redis-password",
+            "namespace": "redis-fyno"
+          }
+        }
+      ]
+    }
+kind: ConfigMap
+metadata:
+  name: redis-fleet-dashboard-config
+  namespace: redis-fyno
