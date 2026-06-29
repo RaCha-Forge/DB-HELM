@@ -28,6 +28,13 @@ spec:
       serviceAccountName: {{ include "mongodb.serviceAccountName" $ }}
       {{- end }}
       terminationGracePeriodSeconds: {{ $.Values.mongodb.terminationGracePeriodSeconds }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: mongo
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: mongo
           image: {{ $.Values.image.registry }}/{{ $.Values.image.repository }}:{{ $.Values.image.tag }}
@@ -130,6 +137,13 @@ spec:
       #   runAsGroup: 65532
       #   runAsNonRoot: true
       terminationGracePeriodSeconds: {{ $.Values.arbiter.terminationGracePeriodSeconds }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: mongo
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: mongo-arbiter
           image: {{ $.Values.image.registry }}/{{ $.Values.image.repository }}:{{ $.Values.image.tag }}
