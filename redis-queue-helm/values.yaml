@@ -72,7 +72,7 @@ services:
     # QUEUE-OPTIMIZED REDIS CONFIGURATION
     config:
       # Memory Management
-      maxmemory: "7gb"
+      maxmemory: "4gb"
       maxmemoryPolicy: "noeviction"  # Evict oldest jobs when full
       
       # Persistence - Balanced (acceptable to lose seconds of data)
@@ -99,12 +99,12 @@ services:
     
     resources:
       requests:
-        storage: "30Gi"
+        storage: "10Gi"
         cpu: "1"
-        memory: "6Gi"
+        memory: "2Gi"
       limits:
         cpu: "2"
-        memory: "8Gi"
+        memory: "4Gi"
 
   # Envoy proxy for seamless master routing.
   # Applications should connect to service.name (redis-queue by default);
