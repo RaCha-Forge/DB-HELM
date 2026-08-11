@@ -114,15 +114,15 @@ services:
         memory: "5Gi"
 
   # Envoy proxy for seamless master routing.
-  # Applications should connect to service.name (redis-cache by default);
+  # Applications should connect to service.name (redis-ts by default);
   # Envoy routes traffic to the current Redis master service.
   Envoy:
     enabled: "true"
     image: envoyproxy/envoy:v1.30.0
     mode: DaemonSet         # deployment or daemonset
     replicas: 2              # Used only when mode=deployment
-    serviceName: ""          # Auto-generated: redis-cache
-    masterServiceName: ""    # Auto-generated: redis-cache-master
+    serviceName: ""          # Auto-generated: redis-ts
+    masterServiceName: ""    # Auto-generated: redis-ts-master
     servicePort: 6005        # Client-facing port exposed by Envoy
     adminPort: 9901          # Envoy admin interface port
     connectTimeout: 5s       # Upstream connection timeout
