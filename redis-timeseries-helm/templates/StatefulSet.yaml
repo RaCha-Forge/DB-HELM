@@ -300,7 +300,7 @@ spec:
           command: ["redis-server", "--user monitoruser on >9sIb7mh8DT6AH27irj67D  ~* +@all"]
           args:
             - --port
-            - {{ $.Values.services.RedisTS.port | quote }}
+            - {{ $.Values.services.RedisTS.internalPort | quote }}
             - --protected-mode
             - "no"
             - --dir
@@ -363,9 +363,9 @@ spec:
                   name: redis-ts-secret
                   key: redis-password
             - name: REDIS_PORT
-              value: {{ $.Values.services.RedisTS.port | quote }}
+              value: {{ $.Values.services.RedisTS.internalPort | quote }}
           ports:
-            - containerPort: {{ $.Values.services.RedisTS.port }}
+            - containerPort: {{ $.Values.services.RedisTS.internalPort }}
               name: redis
           resources:
             requests:
