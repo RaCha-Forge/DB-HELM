@@ -29,7 +29,7 @@ mongodb:
   resources:
     requests:
       storage: 50Gi
-      cpu: 2
+      cpu: 1
       memory: 4Gi
     limits:
       cpu: 2
@@ -60,13 +60,13 @@ service:
 
 # Replica set initialization job
 initJob:
-  enabled: false
+  enabled: true
   name: mongo-rs-init
   ttlSecondsAfterFinished: 60
   restartPolicy: OnFailure
   user:
-    name: mongouser
-    password: "MongoPass"
+    name: fynodev_mongouser
+    password: "Bw2PIzA4MI3m9zbV"
     database: admin
     role: root
   waitTime:
