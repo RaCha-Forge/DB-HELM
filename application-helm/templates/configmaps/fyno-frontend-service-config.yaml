@@ -1,0 +1,39 @@
+{{- if eq .Values.services.frontend.enabled "true" }}
+
+apiVersion: v1
+data:
+  API_GATEWAY: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.app }}/api/app
+  NEXT_BACKEND_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.app_api }}
+  NEXT_PUBLIC_API_GATEWAY: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.app }}/api/app
+  NEXT_PUBLIC_API_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.api }}
+  NEXT_PUBLIC_EXCEPTION_DOMAINS: fyno.io,kgbk.in,65.1.131.78.sslip.io
+  NEXT_PUBLIC_FB_CONFIG_ID: "XXXXXXX"
+  NEXT_PUBLIC_INAPP_DEV_URL: https://inapp.fyno.io
+  NEXT_PUBLIC_INAPP_INTEGRATION: I7AB9FD675ABE
+  NEXT_PUBLIC_INAPP_TOKEN: 2d011ed7-83f0-413b-bf38-9ee257a9db79
+  NEXT_PUBLIC_INAPP_WS: FYAPB8C5C16FAIN
+  NEXT_PUBLIC_NODE_ENV: prod
+  NEXT_PUBLIC_P91FAI8013_SOLUTION_ID: "XXX"
+  NEXT_PUBLIC_P91FKL2612_SOLUTION_ID: "XXXX"
+  NEXT_PUBLIC_P91FSA1510_SOLUTION_ID: "XXXXX"
+  # NEXT_PUBLIC_REQUEST_ENC_KEY: S26Nu9SWnos1yhvz
+  REQUEST_ENC_KEY: S26Nu9SWnos1yhvz
+  NEXT_PUBLIC_SITE_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.app }}
+  NEXT_PUBLIC_UNLAYER_PROJECT_ID: "167551"
+  NEXTAUTH_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.app }}
+  UNSUBSCRIBE_DIRECT_API: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.unsubscribe }}
+  UNSUBSCRIBE_HOST_NAME: {{ .Values.domains.unsubscribe }}
+  YARN_CACHE_FOLDER: /tmp/yarn
+  JWT_REFRESH_TOKEN_SECRET: 7c4c1c50-3230-45bf-9eae-c9b2e401c767
+  JWT_SECRET: 5O7lcKjHS3Q0h3ttI/MnYeDLUNnejUHPuWS6CTwVkOg=
+  REQUEST_PRIVATE_KEY: "openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048"
+  {{- if eq .Values.TLS_END_TO_END.enabled "true"}}
+  SSL_CERT_PATH: /etc/ssl/tls/tls.crt
+  SSL_KEY_PATH: /etc/ssl/tls/tls.key
+  {{- end}}
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-frontend-service-config
+  namespace: {{ .Release.Namespace }}
+
+{{- end }}

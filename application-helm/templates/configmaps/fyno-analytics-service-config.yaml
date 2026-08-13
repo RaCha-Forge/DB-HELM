@@ -1,0 +1,16 @@
+{{- if eq .Values.services.analytics.enabled "true" }}
+
+apiVersion: v1
+data:
+  AUTOMATION_LOGS_CHECKPOINT: /home/automation_logs_ckp
+  DLR_LOGS_CHECKPOINT: /home/dlr_logs_ckp
+  EVENT_LOGS_CHECKPOINT: /home/event_logs_ckp
+  SENT_LOGS_CHECKPOINT: /home/sent_logs_ckp
+  SHOW_SUMMARY: "False"
+  TRUNC_BY: 15 minute
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-analytics-config
+  namespace: {{ .Release.Namespace }}
+
+{{- end }}

@@ -1,0 +1,32 @@
+{{- if eq .Values.services.aiservice.enabled "true" }}
+
+apiVersion: v1
+data:
+  ALARM_EVENT_NAME: external.alarm-updates
+  ALERT_API: LIE40wx.Y6Hs3FtZh9BLnmOT+kVE5wfYP6fSuV9U
+  ALERT_DIGEST_API: LIE40wx.Y6Hs3FtZh9BLnmOT+kVE5wfYP6fSuV9U
+  ALERT_DIGEST_EVENT: digested-alerts
+  ALERT_DIGEST_WSID: FYAP8B4DBBA8EIN
+  ALERT_EVENT: alerting-event
+  ALERT_EXCEPTIONS: Requested entity was not found., unregistered
+  ALERT_TREND_EVENT: alerting-trend
+  ALERT_WSID: FYAP8B4DBBA8EIN
+  DB_CONNECTION_LIMIT: "{{ .Values.common_env.DB_CONNECTION_LIMIT }}"
+  DB_NAME: fyno_db
+  LOG_LEVEL: INFO
+  MONGO_COLLECTION: alertlogs
+  MONGO_DB: fyno
+  MONGO_FYSMART_COLLECTION: summary_user
+  MONGO_FYSMART_DB: fyno_analytics
+  MPLCONFIGDIR: /tmp/
+  REDIS_CLUSTER: "{{ .Values.db.REDIS_CACHE_CLUSTER }}"
+  # REDIS connection details are now sourced from secret
+  SEND_ALARM_TO_CUSTOMERS: "true"
+  SLACK_INTERNAL_ALERT_CHANNEL: '#dev-alarms-monitoring'
+  URL: {{ .Values.domains.api }}
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-ai-service-config
+  namespace: {{ .Release.Namespace }}
+
+{{- end }}

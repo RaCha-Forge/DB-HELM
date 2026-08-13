@@ -1,0 +1,23 @@
+{{- if eq .Values.services.monitor.enabled "true" }}
+
+apiVersion: v1
+data:
+  PORT: {{ (index .Values.services.monitor.ports 0) | quote }}
+  NODE_ENV: production
+  REDIS_TLS: "false"
+  LOG_LEVEL: info
+  GOOGLE_CLIENT_ID: ""
+  GOOGLE_CLIENT_SECRET: ""
+  GOOGLE_CALLBACK_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.monitoring }}/auth/google/callback
+  REDIS_CLUSTER: "false"
+  SESSION_SECRET: some-random-session-secret
+  SESSION_TIMEOUT: "3600000"
+  CORS_ORIGIN: "*"
+  SSO_LOGIN: "false"
+  ALLOWED_EMAILS: "ashish@fyno.io,ajay@fyno.io,ashwin@fyno.io,aman@fyno.io,vraj@fyno.io,viram@fyno.io,vinod@fyno.io,charan@fyno.io"
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-monitor-config
+  namespace: {{ .Release.Namespace }}
+
+{{- end }}

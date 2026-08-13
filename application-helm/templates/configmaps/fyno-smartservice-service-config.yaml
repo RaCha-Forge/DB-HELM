@@ -1,0 +1,30 @@
+{{- if eq .Values.services.smart.enabled "true" }}
+
+apiVersion: v1
+data:
+  ALERT_API: c01eggS.bsXEF4JM1iziks7CMJsHOOOGojWBt8vg
+  ALERT_WSID: FYAPB8C5C16FAIN
+  DB_NAME: fyno_db
+  LOG_LEVEL: INFO
+  MONGO_COLLECTION: alertlogs
+  MONGO_DB: fyno_app
+  MONGO_FYSMART_COLLECTION: summary_sent_logs
+  MONGO_FYSMART_DB: fyno_analytics_v2
+  MPLCONFIGDIR: /tmp/
+  REDIS_CLUSTER: "{{ .Values.db.REDIS_CACHE_CLUSTER }}"
+    #URL: {{ .Values.domains.api }}
+  URL: pod.fyno.io
+  {{- if eq .Values.proxy.enabled "true"}}
+  HTTP_PROXY: {{.Values.proxy.http }}
+  HTTPS_PROXY: {{.Values.proxy.https }}
+    #SSL_CERT_FILE: /etc/ssl/{{.Values.proxy.cert.path }}/{{.Values.proxy.cert.name }}
+    #REQUESTS_CA_BUNDLE: "false"
+  SSL_CERT_FILE: ""
+  #SSL_CERT_FILE: /etc/ssl/{{.Values.proxy.cert.path }}/{{.Values.proxy.cert.name }}
+  {{- end}}
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-smart-service-config
+  namespace: {{ .Release.Namespace }}
+
+{{- end }}

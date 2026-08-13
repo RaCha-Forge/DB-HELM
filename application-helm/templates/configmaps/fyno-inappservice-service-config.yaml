@@ -1,0 +1,29 @@
+{{- if eq .Values.services.inapp.enabled "true" }}
+
+apiVersion: v1
+data:
+  API_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.api }}
+  APP_NAME: fyno-inapp
+  CALLBACK_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.callback }}
+  DEFAULT_TTL_IN_DAYS: "30"
+  INAPPSERVICEQ_NAME: inappq
+  INAPPSERVICEQ_PREFIX: '{fynoq:isq}'
+  LOG_CONSOLE_ENABLE: "true"
+  LOG_LEVEL: debug
+  NODE_ENV: prod
+  REDIS_QUEUE_REMOVE_JOB_COUNT: "100"
+  REDIS_QUEUE_FAILED_JOB_COUNT: "1000"
+  NPM_CONFIG_CACHE: /tmp/.npm
+  PORT: "4000"
+  REDIS_CLUSTER: "{{ .Values.db.REDIS_CACHE_CLUSTER }}"
+  # REDIS connection details are now sourced from secret
+  REDIS_QUEUE_HOST: {{ .Values.db.REDIS_QUEUE_HOST }}
+  REDIS_QUEUE_KEYPREFIX: fynoq
+  # REDIS_QUEUE connection details are now sourced from secret
+  WS_PORT: "4500"
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-inappservice-config
+  namespace: {{ .Release.Namespace }}
+
+{{- end }}

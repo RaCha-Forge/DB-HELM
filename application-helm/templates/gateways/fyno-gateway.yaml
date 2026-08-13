@@ -1,0 +1,50 @@
+{{- if eq .Values.istio.gw_enabled "true" }}
+
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: fyno-gateway
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - {{ .Values.vsdomains.api }}
+    - {{ .Values.vsdomains.app_api }}
+    - {{ .Values.vsdomains.app }}
+    - {{ .Values.vsdomains.callback }}
+    - {{ .Values.vsdomains.inapp }}
+    - {{ .Values.vsdomains.monitoring }}
+    - {{ .Values.vsdomains.shoty }}
+    - {{ .Values.vsdomains.media }}
+    - {{ .Values.vsdomains.unsubscribe }}
+    - {{ .Values.vsdomains.db }}
+    - {{ .Values.vsdomains.prometheus }}
+    - {{ .Values.vsdomains.grafana }}
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+  - hosts:
+    - {{ .Values.vsdomains.api }}
+    - {{ .Values.vsdomains.app_api }}
+    - {{ .Values.vsdomains.app }}
+    - {{ .Values.vsdomains.callback }}
+    - {{ .Values.vsdomains.inapp }}
+    - {{ .Values.vsdomains.monitoring }}
+    - {{ .Values.vsdomains.shoty }}
+    - {{ .Values.vsdomains.media }}
+    - {{ .Values.vsdomains.db }}
+    - {{ .Values.vsdomains.prometheus }}
+    - {{ .Values.vsdomains.grafana }}
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      credentialName: {{ .Values.istio.secret_name }}
+      mode: SIMPLE
+
+
+{{- end }}

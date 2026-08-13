@@ -1,0 +1,101 @@
+{{- if or
+  (eq .Values.services.api_service.enabled "true")
+  (eq .Values.services.apiservice.enabled "true")
+  (eq .Values.services.automationservice.enabled "true")
+  (eq .Values.services.backend.enabled "true")
+  (eq .Values.services.callback.enabled "true")
+  (eq .Values.services.dlr.enabled "true")
+  (eq .Values.services.eventservice.enabled "true")
+  (eq .Values.services.log.enabled "true")
+  (eq .Values.services.transporter.enabled "true")
+}}
+
+apiVersion: v1
+data:
+  AI_INTERNAL_URL: http://{{ .Release.Name }}-aiservice-svc.{{ .Release.Namespace }}.svc.cluster.local:80
+  ALLOWED_IP_INTERNAL_API: 172.16.0.0/16,10.20.0.0/16,43.224.130.116,192.168.1.0/24,127.0.0.1
+  API_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.api }}
+  ATHENA_STORAGE_BUCKET: analytics-athenaqueryresult
+  AUTOMATION_FYNO_WEBHOOK: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.api }}/v1/{{ "{{wsid}}" }}/{{ "{{env}}" }}/automation/{{ "{{automation_link_id}}" }}?token={{ "{{auth_token}}" }}
+  AWS_APP_BUCKET_NAME: fyno-app
+  AWS_PUBLIC_BUCKET_NAME: fyno-app
+  AWS_REGION: ap-south-1
+  DB_CONNECTION_LIMIT: "2"
+  # DB_HOST: {{ .Values.db.MARIA_DB_HOST }}
+  DB_NAME: fyno_db
+  # DB_PASSWORD: {{ .Values.db.MARIA_DB_PASSWORD }}
+  # DB_PORT: "{{ .Values.db.MARIA_DB_PORT }}"
+  # DB_USER: {{ .Values.db.MARIA_DB_USER }}
+  DEVREV_API_TOKEN: eyJhbGciOiJSUzI1NiIsImlzcyI6Imh0dHBzOi8vYXV0aC10b2tlbi5kZXZyZXYuYWkvIiwia2lkIjoic3RzX2tpZF9yc2EiLCJ0eXAiOiJKV1QifQ.eyJhdWQiOlsiamFudXMiXSwiYXpwIjoiZG9uOmlkZW50aXR5OmR2cnYtdXMtMTpkZXZvLzExMjhSeHV1ckU6ZGV2dS8yIiwiZXhwIjoxODA3OTMzNDM3LCJodHRwOi8vZGV2cmV2LmFpL2NsaWVudGlkIjoiZG9uOmlkZW50aXR5OmR2cnYtdXMtMTpkZXZvLzExMjhSeHV1ckU6c3ZjYWNjLzI3IiwiaHR0cDovL2RldnJldi5haS9kZXZvX2RvbiI6ImRvbjppZGVudGl0eTpkdnJ2LXVzLTE6ZGV2by8xMTI4Unh1dXJFIiwiaHR0cDovL2RldnJldi5haS9kZXZvaWQiOiJERVYtMTEyOFJ4dXVyRSIsImh0dHA6Ly9kZXZyZXYuYWkvc3ZjYWNjIjoiZG9uOmlkZW50aXR5OmR2cnYtdXMtMTpkZXZvLzExMjhSeHV1ckU6c3ZjYWNjLzI3IiwiaHR0cDovL2RldnJldi5haS90b2tlbnR5cGUiOiJ1cm46ZGV2cmV2OnBhcmFtczpvYXV0aDp0b2tlbi10eXBlOmFhdCIsImlhdCI6MTcxMzMyNTQzNywiaXNzIjoiaHR0cHM6Ly9hdXRoLXRva2VuLmRldnJldi5haS8iLCJqdGkiOiJkb246aWRlbnRpdHk6ZHZydi11cy0xOmRldm8vMTEyOFJ4dXVyRTp0b2tlbi9qcXo2YlQ2SyIsInN1YiI6ImRvbjppZGVudGl0eTpkdnJ2LXVzLTE6ZGV2by8xMTI4Unh1dXJFOnN2Y2FjYy8yNyJ9.O5h9tkgz3hr1wjNlmEyyzS7WepNCWU86Anc3jQCgB5s-7qVAk-3yps2IbtCACiz35X0SL2ix20NelY_jTeyERzi8WqWYbA5qwqMdO0zd2RfR9cHp7rK7x_q5rmggprESpxRBXSaaTHkkbJ565OheWttwkXqAQ2y1frsaM7kZVLQPTO6nZ7dZ1pRIPYQ40EibAN8cbKGE9fMRQMPUC6FzRRECtzAWAtR_2sEPvz_pYD_E_K4DLvBw99ujSEOu56gvJMU6oC3nPaheV1pCBfimrbMTU4asCw2fToI8ruX_uKidF5AUFp3AOQkbN6YAP1M2HGwE0GwJ0K84SST59gkDrQ
+  DLR_LOGS_DB: fynostage-dlr-logs
+  DLR_LOGS_STREAM: fynostage-dlr-logs-stream
+  DLR_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.callback }}
+  ENCRYPTION_IV: 44e1b75489c922b5
+  ENCRYPTION_KEY: LYfQwqiSxgrUFTaoIjUkAPtDrMcrurb9
+  FB_CLIENT_ID: ""
+  FB_CLIENT_SECRET: ""
+  FB_TOKEN: ""
+  ADMIN_API_KEY: D2gFLdTdKt00V2ib3qu8En670zTNeM
+  FYNO_API_KEY: c01eggS.bsXEF4JM1iziks7CMJsHOOOGojWBt8vg
+  FYNO_APP_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.app }}/
+  FYNO_BACKEND_API: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.app_api }}
+  FYNO_ENDPOINT: https://pod.fyno.io/v1/
+  FYNO_INTERNAL_API: http://{{ .Release.Name }}-api-service-svc.{{ .Release.Namespace }}.svc.cluster.local:80/v1
+  FYNO_WSID: FYAPB8C5C16FAIN
+  GOOGLE_CLIENT_ID: ""
+  HTTP_LOG_CONSOLE_ENABLE: "true"
+  HTTP_LOG_LEVEL: debug
+  INAPP_URL: http://{{ .Release.Name }}-inapp-svc.{{ .Release.Namespace }}.svc.cluster.local:80/v1/users/integration/
+  INCOMING_DOWNLOAD_CDN_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.media }}
+  INTERNAL_CAMPAIGN_SCALING: internal.dev_scaling
+  INTERNAL_DLR_URL: http://{{ .Release.Name }}-dlr-svc.{{ .Release.Namespace }}.svc.cluster.local:80
+  INTERNAL_HIGH_TRAFFIC_ALERT: internal.bullmq_high_traffic_alert
+  INTERNAL_SCALING_EVENT: internal.dev_scaling
+  JWT_CACHE_EXPIRESIN: "86400"
+  JWT_ENCRYPTION_KEY: eced245e09b3f259ed187f9bc4b4e02ab67c5355c7d76e887f027fb40f887584
+  JWT_SECRET: ctIUxydnw1NOhA7mUFEyY2oEWeAQCD4Fai8lwz5bhg8dvSVrGBZT53I6PHJ0FZ
+  JWT_TOKEN_EXPIRESIN: 1d
+  LOG_CONSOLE_ENABLE: "true"
+  REDIS_LOG_STREAM: enable
+  REDIS_STREAM_HOST: {{ .Values.db.REDIS_CACHE_HOST }}
+  REDIS_STREAM_PASSWORD: "{{ .Values.db.REDIS_CACHE_PASSWORD}}"
+  REDIS_STREAM_PORT: "{{ .Values.db.REDIS_CACHE_PORT}}"
+  DUCKDB_QUERY: enable
+  LOG_LEVEL: warn
+  MDB_REDIS_CLUSTER: "false"
+  DUCKDB_QUERY: enable
+  META_APP_ID: "332189416110030"
+  MINIO_ENDPOINT: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.media }}
+  MONGODB_ANALYTICSURL: mongodb://{{ .Values.db.MONGO_DB_USER }}:{{ .Values.db.MONGO_DB_PASSWORD }}@{{ .Values.db.MONGO_DB_HOST }}:{{ .Values.db.MONGO_DB_PORT }}/fyno_analytics?authSource=admin
+  MONGODB_URL: mongodb://{{ .Values.db.MONGO_DB_USER }}:{{ .Values.db.MONGO_DB_PASSWORD }}@{{ .Values.db.MONGO_DB_HOST }}:{{ .Values.db.MONGO_DB_PORT }}/fyno_app?authSource=admin
+  NODE_ENV: dev
+  POST_UNSUBSCRIBE_LINK: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.unsubscribe }}/subscription
+  PROXY_JWT_SECRET: NiUxAYlnJsJRkrQrvNaUeYHznuH5S32jSKMsLSNZhSTle3Mpp3tAu0vr4Xcd3NCF 
+  REDIS_QUEUE_CLUSTER: "false"
+  REQUEST_ENC_KEY: S26Nu9SWnos1yhvz
+  S3_MEDIA_DIRECTORY: media
+  SENT_LOGS_DB: fynostage-sent-logs
+  SHORT_URL: {{ .Values.domains.shoty }}/
+  UI_UNSUBSCRIBE_LINK: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.unsubscribe }}/unsubscribe
+  UNSUBSCRIBE_MAILTO: unsubscribe-dev@thelistmanager.com
+  PROCESS_COUNT: "{{ .Values.common_env.PROCESS_COUNT }}"
+  PROCESS_CONCURRENCY: "{{ .Values.common_env.PROCESS_CONCURRENCY }}"
+  LICENSE_SERVICE_URL: http://{{ .Release.Name }}-license-svc.{{ .Release.Namespace }}.svc.cluster.local:4000
+  {{- if eq .Values.TLS_END_TO_END.enabled "true"}}
+  SSL_CERT_PATH: /etc/ssl/tls/tls.crt
+  SSL_KEY_PATH: /etc/ssl/tls/tls.key
+  {{- end}}
+  {{- if eq .Values.proxy.enabled "true"}}
+  HTTP_PROXY: {{.Values.proxy.http }}
+  HTTPS_PROXY: {{.Values.proxy.https }}
+  NO_PROXY: localhost,127.0.0.1,.svc,.cluster.local,.svc.cluster.local,sit-apig.esafbank.com,sit-apig.esafbank.com:8243,https://sit-apig.esafbank.com,https://sit-apig.esafbank.com:8243,*.esafbank.org
+  NODE_EXTRA_CA_CERTS: /etc/ssl/{{.Values.proxy.cert.path }}/{{.Values.proxy.cert.name }}
+    # SSL_CERT_FILE: /etc/ssl/{{.Values.proxy.cert.path }}/{{.Values.proxy.cert.name }}
+  {{- end}}
+
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-backend-config
+  namespace: {{ .Release.Namespace }}
+
+{{- end }}

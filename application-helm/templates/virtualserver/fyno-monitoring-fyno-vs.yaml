@@ -1,0 +1,22 @@
+{{- if eq .Values.f5.vs_enabled "true" }}
+
+apiVersion: cis.f5.com/v1
+kind: VirtualServer
+metadata:
+  name: {{ .Release.Name }}-monitoring-vs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    f5cr: "true"
+spec:
+  host: {{ .Values.vsdomains.monitoring }}
+  hostGroup: fyno-apps
+  virtualServerAddress: {{ .Values.f5.virtualServerAddress }}
+  tlsProfileName: k8s-esafbankorg-tls-edge
+  bigipRouteDomain: 70
+  pools:
+    - path: /
+      service: {{ .Release.Name }}-monitor-svc
+      servicePort: 3001
+      monitor:
+        type: tcp
+{{- end }}
