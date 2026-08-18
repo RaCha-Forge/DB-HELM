@@ -22,7 +22,7 @@ spec:
     metadata:
       labels:
         app: redis-queue
-        role: primary
+        role: master
         redis-index: "0"
     spec:
       securityContext:
@@ -52,11 +52,11 @@ spec:
       containers:
         - name: redis
           image: {{ .Values.services.RedisQueue.image }}
-          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
           command: ["redis-server", "--user monitoruser on >9sIb7mh8DT6AH27irj67D  ~* +@all"]
           args:
             - --port
-            - {{ .Values.services.RedisQueue.port | quote }}
+            - {{ .Values.services.RedisQueue.internalPort | quote }}
             - --protected-mode
             - "no"
             - --dir
@@ -66,14 +66,14 @@ spec:
             - "$(REDIS_PASSWORD)"
             - --masterauth
             - "$(REDIS_PASSWORD)"
-            # JOB QUEUE OPTIMIZED PERSISTENCE
+            # JOB queue OPTIMIZED PERSISTENCE
             - --appendonly
             - {{ .Values.services.RedisQueue.config.appendonly | quote }}
             - --appendfsync
             - {{ .Values.services.RedisQueue.config.appendfsync | quote }}
             - --save
             - {{ .Values.services.RedisQueue.config.save | quote }}
-            # Memory Management - Queue Optimized
+            # Memory Management - queue Optimized
             - --maxmemory
             - {{ .Values.services.RedisQueue.config.maxmemory | quote }}
             - --maxmemory-policy
@@ -90,7 +90,7 @@ spec:
             # Performance
             - --hz
             - {{ .Values.services.RedisQueue.config.hz | quote }}
-            # Replication - Queue Optimized
+            # Replication - queue Optimized
             - --repl-backlog-size
             - {{ .Values.services.RedisQueue.config.replBacklogSize | quote }}
             - --repl-backlog-ttl
@@ -99,15 +99,15 @@ spec:
             - {{ .Values.services.RedisQueue.config.minReplicasToWrite | quote }}
             - --min-replicas-max-lag
             - {{ .Values.services.RedisQueue.config.minReplicasMaxLag | quote }}
-            # Queue-Specific Settings
+            # queue-Specific Settings
             - --lazyfree-lazy-eviction
             - {{ .Values.services.RedisQueue.config.lazyfreeMemoryEviction | quote }}
             - --activedefrag
             - {{ .Values.services.RedisQueue.config.activedefrag | quote }}
             - --loadmodule 
-            - /usr/lib/redis/modules/rejson.so
+            - /usr/local/lib/redis/modules/rejson.so
             - --loadmodule
-            - /usr/lib/redis/modules/redistimeseries.so
+            - /usr/local/lib/redis/modules/redistimeseries.so
           env:
             - name: REDIS_PASSWORD
               valueFrom:
@@ -115,9 +115,9 @@ spec:
                   name: redis-queue-secret
                   key: redis-password
             - name: REDIS_PORT
-              value: {{ .Values.services.RedisQueue.port | quote }}
+              value: {{ .Values.services.RedisQueue.internalPort | quote }}
           ports:
-            - containerPort: {{ .Values.services.RedisQueue.port }}
+            - containerPort: {{ .Values.services.RedisQueue.internalPort }}
               name: redis
           resources:
             requests:
@@ -126,10 +126,6 @@ spec:
             limits:
               cpu: {{ .Values.services.RedisQueue.resources.limits.cpu | quote }}
               memory: {{ .Values.services.RedisQueue.resources.limits.memory | quote }}
-          securityContext:
-            runAsUser: 65532
-            runAsGroup: 65532
-            runAsNonRoot: true
           volumeMounts:
             - name: data
               mountPath: /data
@@ -138,7 +134,7 @@ spec:
               command:
                 - sh
                 - -c
-                - redis-cli -p {{ .Values.services.RedisQueue.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+                - redis-cli -p {{ .Values.services.RedisQueue.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
@@ -148,7 +144,7 @@ spec:
               command:
                 - sh
                 - -c
-                - redis-cli -p {{ .Values.services.RedisQueue.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+                - redis-cli -p {{ .Values.services.RedisQueue.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -159,7 +155,7 @@ spec:
                 - sh
                 - -c
                 - |
-                  redis-cli -p {{ .Values.services.RedisQueue.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG
+                  redis-cli -p {{ .Values.services.RedisQueue.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 3
@@ -169,12 +165,8 @@ spec:
         # HA Controller Sidecar
         - name: ha-controller
           image: {{ .Values.services.RedisController.image }}
-          imagePullPolicy: {{ .Values.imagePullPolicy }}
-          command:
-            - /bin/sh
-            - -c
-            - |
-              python /app/redis_ha_controller.py
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          command: ["python3", "/app/redis_ha_controller.py"]
           env:
             - name: POD_NAME
               valueFrom:
@@ -188,8 +180,12 @@ spec:
               value: "redis-queue-0-0.redis-queue-0"
             - name: SERVICE_NAME
               value: "redis-queue"
+            - name: SERVICE_HOST
+              value: "redis-queue-0-0.redis-queue-0.{{ $.Release.Namespace }}.svc.cluster.local"
+            - name: SERVICE_PORT
+              value: {{ .Values.services.RedisQueue.internalPort | quote }}
             - name: REDIS_PORT
-              value: {{ .Values.services.RedisQueue.port | quote }}
+              value: {{ .Values.services.RedisQueue.internalPort | quote }}
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -199,20 +195,16 @@ spec:
               value: {{ .Values.redis.replicaCount | quote }}
             - name: PROMOTABLE_REPLICAS
               value: {{ .Values.redis.promotableReplicas | quote }}
-            - name: LEADER_ELECTION_ENABLED
-              value: "true"
-            - name: LEASE_NAME
-              value: "redis-ha-controller-lease"
-            - name: PYTHONPATH
-              value: "/deps"
+            - name: CHECK_INTERVAL_SECONDS
+              value: {{ .Values.services.RedisController.checkIntervalSeconds | quote }}
+            - name: FAILOVER_THRESHOLD
+              value: {{ .Values.services.RedisController.failoverThreshold | quote }}
             - name: PYTHONUNBUFFERED
               value: "1"
           volumeMounts:
             - name: ha-scripts
               mountPath: /app/redis_ha_controller.py
               subPath: redis_ha_controller.py
-            - name: deps
-              mountPath: /deps
           resources:
             requests:
               cpu: {{ .Values.services.RedisController.resources.requests.cpu | quote }}
@@ -222,13 +214,11 @@ spec:
               memory: {{ .Values.services.RedisController.resources.limits.memory | quote }}
 {{- end }}
 
-      volumes:
 {{- if and (eq .Values.services.RedisController.enabled "true") (eq .Values.services.RedisController.runAsSidecar "true") }}
+      volumes:
         - name: ha-scripts
           configMap:
-            name: redis-ha-scripts
-        - name: deps
-          emptyDir: {}
+            name: redis-queue-ha-scripts
 {{- end }}
 
   volumeClaimTemplates:
@@ -302,7 +292,7 @@ spec:
           command: ["redis-server", "--user monitoruser on >9sIb7mh8DT6AH27irj67D  ~* +@all"]
           args:
             - --port
-            - {{ $.Values.services.RedisQueue.port | quote }}
+            - {{ $.Values.services.RedisQueue.internalPort | quote }}
             - --protected-mode
             - "no"
             - --dir
@@ -312,14 +302,14 @@ spec:
             - "$(REDIS_PASSWORD)"
             - --masterauth
             - "$(REDIS_PASSWORD)"
-            # JOB QUEUE OPTIMIZED PERSISTENCE
+            # JOB queue OPTIMIZED PERSISTENCE
             - --appendonly
             - {{ $.Values.services.RedisQueue.config.appendonly | quote }}
             - --appendfsync
             - {{ $.Values.services.RedisQueue.config.appendfsync | quote }}
             - --save
             - {{ $.Values.services.RedisQueue.config.save | quote }}
-            # Memory Management - Queue Optimized
+            # Memory Management - queue Optimized
             - --maxmemory
             - {{ $.Values.services.RedisQueue.config.maxmemory | quote }}
             - --maxmemory-policy
@@ -336,7 +326,7 @@ spec:
             # Performance
             - --hz
             - {{ $.Values.services.RedisQueue.config.hz | quote }}
-            # Replication - Queue Optimized
+            # Replication - queue Optimized
             - --repl-backlog-size
             - {{ $.Values.services.RedisQueue.config.replBacklogSize | quote }}
             - --repl-backlog-ttl
@@ -345,15 +335,15 @@ spec:
             - {{ $.Values.services.RedisQueue.config.minReplicasToWrite | quote }}
             - --min-replicas-max-lag
             - {{ $.Values.services.RedisQueue.config.minReplicasMaxLag | quote }}
-            # Queue-Specific Settings
+            # queue-Specific Settings
             - --lazyfree-lazy-eviction
             - {{ $.Values.services.RedisQueue.config.lazyfreeMemoryEviction | quote }}
             - --activedefrag
             - {{ $.Values.services.RedisQueue.config.activedefrag | quote }}
             - --loadmodule 
-            - /usr/lib/redis/modules/rejson.so
+            - /usr/local/lib/redis/modules/rejson.so
             - --loadmodule
-            - /usr/lib/redis/modules/redistimeseries.so
+            - /usr/local/lib/redis/modules/redistimeseries.so
           env:
             - name: REDIS_PASSWORD
               valueFrom:
@@ -361,9 +351,9 @@ spec:
                   name: redis-queue-secret
                   key: redis-password
             - name: REDIS_PORT
-              value: {{ $.Values.services.RedisQueue.port | quote }}
+              value: {{ $.Values.services.RedisQueue.internalPort | quote }}
           ports:
-            - containerPort: {{ $.Values.services.RedisQueue.port }}
+            - containerPort: {{ $.Values.services.RedisQueue.internalPort }}
               name: redis
           resources:
             requests:
@@ -372,10 +362,6 @@ spec:
             limits:
               cpu: {{ $.Values.services.RedisQueue.resources.limits.cpu | quote }}
               memory: {{ $.Values.services.RedisQueue.resources.limits.memory | quote }}
-          securityContext:
-            runAsUser: 65532
-            runAsGroup: 65532
-            runAsNonRoot: true
           volumeMounts:
             - name: data
               mountPath: /data
@@ -384,7 +370,7 @@ spec:
               command:
                 - sh
                 - -c
-                - redis-cli -p {{ $.Values.services.RedisQueue.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+                - redis-cli -p {{ $.Values.services.RedisQueue.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
@@ -394,7 +380,7 @@ spec:
               command:
                 - sh
                 - -c
-                - redis-cli -p {{ $.Values.services.RedisQueue.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
+                - redis-cli -p {{ $.Values.services.RedisQueue.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep PONG
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -405,7 +391,7 @@ spec:
                 - sh
                 - -c
                 - |
-                  redis-cli -p {{ $.Values.services.RedisQueue.port }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG
+                  redis-cli -p {{ $.Values.services.RedisQueue.internalPort }} -a "$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 3
@@ -416,11 +402,7 @@ spec:
         - name: ha-controller
           image: {{ $.Values.services.RedisController.image }}
           imagePullPolicy: {{ $.Values.imagePullPolicy }}
-          command:
-            - /bin/sh
-            - -c
-            - |
-              python /app/redis_ha_controller.py
+          command: ["python3", "/app/redis_ha_controller.py"]
           env:
             - name: POD_NAME
               valueFrom:
@@ -434,8 +416,12 @@ spec:
               value: "redis-queue-0-0.redis-queue-0"
             - name: SERVICE_NAME
               value: "redis-queue"
+            - name: SERVICE_HOST
+              value: "redis-queue-0-0.redis-queue-0.{{ $.Release.Namespace }}.svc.cluster.local"
+            - name: SERVICE_PORT
+              value: {{ $.Values.services.RedisQueue.internalPort | quote }}
             - name: REDIS_PORT
-              value: {{ $.Values.services.RedisQueue.port | quote }}
+              value: {{ $.Values.services.RedisQueue.internalPort | quote }}
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -445,20 +431,16 @@ spec:
               value: {{ $.Values.redis.replicaCount | quote }}
             - name: PROMOTABLE_REPLICAS
               value: {{ $.Values.redis.promotableReplicas | quote }}
-            - name: LEADER_ELECTION_ENABLED
-              value: "true"
-            - name: LEASE_NAME
-              value: "redis-ha-controller-lease"
-            - name: PYTHONPATH
-              value: "/deps"
+            - name: CHECK_INTERVAL_SECONDS
+              value: {{ $.Values.services.RedisController.checkIntervalSeconds | quote }}
+            - name: FAILOVER_THRESHOLD
+              value: {{ $.Values.services.RedisController.failoverThreshold | quote }}
             - name: PYTHONUNBUFFERED
               value: "1"
           volumeMounts:
             - name: ha-scripts
               mountPath: /app/redis_ha_controller.py
               subPath: redis_ha_controller.py
-            - name: deps
-              mountPath: /deps
           resources:
             requests:
               cpu: {{ $.Values.services.RedisController.resources.requests.cpu | quote }}
@@ -468,15 +450,12 @@ spec:
               memory: {{ $.Values.services.RedisController.resources.limits.memory | quote }}
 {{- end }}
 
-      volumes:
 {{- if and (eq $.Values.services.RedisController.enabled "true") (eq $.Values.services.RedisController.runAsSidecar "true") }}
+      volumes:
         - name: ha-scripts
           configMap:
-            name: redis-ha-scripts
-        - name: deps
-          emptyDir: {}
+            name: redis-queue-ha-scripts
 {{- end }}
-
   volumeClaimTemplates:
     - metadata:
         name: data

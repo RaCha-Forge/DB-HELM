@@ -1,0 +1,37 @@
+{
+  "targets": [
+    {
+      "id": "cache",
+      "name": "Redis Cache",
+      "description": "Cache workload - allkeys-lru",
+      "namespace": "redis-fyno",
+      "primaryStatefulSet": "redis-cache-0",
+      "replicaStatefulSets": ["redis-cache-1"],
+      "redisContainerName": "redis",
+      "pvcTemplateName": "data",
+      "redisPort": 6379,
+      "podSelectorLabel": { "key": "app", "value": "redis-cache" },
+      "redisPasswordSecret": {
+        "name": "redis-cache-secret",
+        "key": "redis-password"
+      }
+    },
+    {
+      "id": "queue",
+      "name": "Redis Queue",
+      "description": "Job queue workload - noeviction",
+      "namespace": "dev-redis",
+      "primaryStatefulSet": "redis-queue-0",
+      "replicaStatefulSets": ["redis-queue-1"],
+      "redisContainerName": "redis",
+      "pvcTemplateName": "data",
+      "redisPort": 6379,
+      "podSelectorLabel": { "key": "app", "value": "redis-queue" },
+      "redisPasswordSecret": {
+        "name": "redis-queue-secret",
+        "key": "redis-password",
+        "namespace": "dev-redis"
+      }
+    }
+  ]
+}

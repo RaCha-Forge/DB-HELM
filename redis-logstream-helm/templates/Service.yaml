@@ -1,23 +1,23 @@
-{{- if eq .Values.services.RedisQueue.enabled "true" }}
+{{- if eq .Values.services.RedisLogStream.enabled "true" }}
 
 # ===========================
-# INDIVIDUAL HEADLESS SERVICES (redis-queue-0, redis-queue-1, ...)
+# INDIVIDUAL HEADLESS SERVICES (redis-logstream-0, redis-logstream-1, ...)
 # ===========================
 
 # Primary headless service
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis-queue-0
+  name: redis-logstream-0
   namespace: {{ .Release.Namespace }}
 spec:
   clusterIP: None
   selector:
-    app: redis-queue
+    app: redis-logstream
     redis-index: "0"
   ports:
-    - port: {{ .Values.services.RedisQueue.port }}
-      targetPort: {{ .Values.services.RedisQueue.port }}
+    - port: {{ .Values.services.RedisLogStream.internalPort }}
+      targetPort: {{ .Values.services.RedisLogStream.internalPort }}
       name: redis
 
 ---
@@ -29,36 +29,76 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis-queue-{{ $replicaIndex }}
+  name: redis-logstream-{{ $replicaIndex }}
   namespace: {{ $.Release.Namespace }}
 spec:
   clusterIP: None
   selector:
-    app: redis-queue
+    app: redis-logstream
     redis-index: {{ $replicaIndex | quote }}
   ports:
-    - port: {{ $.Values.services.RedisQueue.port }}
-      targetPort: {{ $.Values.services.RedisQueue.port }}
+    - port: {{ $.Values.services.RedisLogStream.internalPort }}
+      targetPort: {{ $.Values.services.RedisLogStream.internalPort }}
       name: redis
 {{- end }}
 
 ---
 
+{{- if eq (toString .Values.services.Envoy.enabled) "true" }}
 # ===========================
-# LOAD BALANCER SERVICE (routes to all pods, client discovers master)
+# APP-FACING ENVOY SERVICE
 # ===========================
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis-queue
+  name: {{ include "redis-logstream.envoyServiceName" . }}
   namespace: {{ .Release.Namespace }}
 spec:
   type: ClusterIP
   selector:
-    app: redis-queue
+    app: redis-logstream-envoy
   ports:
-    - port: {{ .Values.services.RedisQueue.port }}
-      targetPort: {{ .Values.services.RedisQueue.port }}
+    - port: {{ .Values.services.RedisLogStream.port }}
+      targetPort: redis-proxy
       name: redis
+
+---
+
+# ===========================
+# REDIS MASTER SERVICE (Envoy and replicas route here)
+# ===========================
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "redis-logstream.masterServiceName" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: redis-logstream
+    role: master
+  ports:
+    - port: {{ .Values.services.RedisLogStream.internalPort }}
+      targetPort: {{ .Values.services.RedisLogStream.internalPort }}
+      name: redis
+{{- else }}
+# ===========================
+# APP-FACING REDIS MASTER SERVICE
+# ===========================
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "redis-logstream.serviceName" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: redis-logstream
+    role: master
+  ports:
+    - port: {{ .Values.services.RedisLogStream.port }}
+      targetPort: {{ .Values.services.RedisLogStream.internalPort }}
+      name: redis
+{{- end }}
 
 {{- end }}

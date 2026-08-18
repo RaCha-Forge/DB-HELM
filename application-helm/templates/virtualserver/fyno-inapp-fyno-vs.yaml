@@ -1,0 +1,23 @@
+{{- if eq .Values.f5.vs_enabled "true" }}
+
+apiVersion: cis.f5.com/v1
+kind: VirtualServer
+metadata:
+  name: {{ .Release.Name }}-inapp-vs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    f5cr: "true"
+spec:
+  host: {{ .Values.vsdomains.inapp }}
+  hostGroup: fyno-apps  
+  virtualServerAddress: {{ .Values.f5.virtualServerAddress }}
+  tlsProfileName: k8s-esafbankorg-tls-edge
+  bigipRouteDomain: 70
+  pools:
+    - path: /
+      service: {{ .Release.Name }}-inapp-svc
+      servicePort: 443
+      monitor:
+        type: tcp
+
+{{- end }}

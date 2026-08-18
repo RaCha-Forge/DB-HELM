@@ -1,8 +1,8 @@
 # Image configuration
 image:
-  registry: 543458926801.dkr.ecr.ap-south-1.amazonaws.com
-  repository: fyno/mongo
-  tag: latest
+  registry: docker.io
+  repository: library/mongo
+  tag: 8.0.5
   pullPolicy: IfNotPresent
   pullSecret:
     enabled: false
@@ -11,12 +11,12 @@ image:
 # MongoDB replica set configuration
 replicaSet:
   name: rs0
-  port: 28128
+  port: 27017
 
 # MongoDB cluster topology
 topology:
-  mongoNodes: 1      # Number of MongoDB data-bearing nodes
-  arbiterNodes: 0    # Number of arbiter nodes (voting only, no data)
+  mongoNodes: 2      # Number of MongoDB data-bearing nodes
+  arbiterNodes: 1    # Number of arbiter nodes (voting only, no data)
 
 # Storage configuration
 storageClass:
@@ -29,7 +29,7 @@ mongodb:
   resources:
     requests:
       storage: 50Gi
-      cpu: 2
+      cpu: 1
       memory: 4Gi
     limits:
       cpu: 2
@@ -39,7 +39,7 @@ mongodb:
 
 # Arbiter configuration (for voting in replica set elections)
 arbiter:
-  enabled: false
+  enabled: true
   serviceName: mongo-arbiter  # Base name: will create mongo-arbiter-0-0, mongo-arbiter-1-0, etc.
   resources:
     requests:
@@ -60,13 +60,13 @@ service:
 
 # Replica set initialization job
 initJob:
-  enabled: false
+  enabled: true
   name: mongo-rs-init
   ttlSecondsAfterFinished: 60
   restartPolicy: OnFailure
   user:
-    name: mongouser
-    password: "Mongo@password"
+    name: fynodev_mongouser
+    password: "Bw2PIzA4MI3m9zbV"
     database: admin
     role: root
   waitTime:

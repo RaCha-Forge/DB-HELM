@@ -1,0 +1,176 @@
+{{- if and (eq (toString .Values.services.RedisCache.enabled) "true") (eq (toString .Values.services.Envoy.enabled) "true") }}
+{{- $mode := lower (default "deployment" .Values.services.Envoy.mode) }}
+{{- if eq $mode "daemonset" }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: redis-cache-envoy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: redis-cache-envoy
+spec:
+  selector:
+    matchLabels:
+      app: redis-cache-envoy
+  template:
+    metadata:
+      labels:
+        app: redis-cache-envoy
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.services.Envoy.terminationGracePeriodSeconds }}
+      {{- if eq .Values.imagePullSecret.enabled "true" }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret.value }}
+      {{- end }}
+      containers:
+        - name: envoy
+          image: {{ .Values.services.Envoy.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - -c
+            - /etc/envoy/envoy.yaml
+            - --log-level
+            - {{ .Values.services.Envoy.logLevel }}
+            - --drain-time-s
+            - {{ .Values.services.Envoy.drainTimeout | trimSuffix "s" | quote }}
+            - --concurrency
+            - {{ .Values.services.Envoy.concurrency | quote }}
+          ports:
+            - containerPort: {{ .Values.services.Envoy.servicePort }}
+              name: redis-proxy
+            - containerPort: {{ .Values.services.Envoy.adminPort }}
+              name: envoy-admin
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: envoy-admin
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: envoy-admin
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - sleep {{ .Values.services.Envoy.drainTimeout | trimSuffix "s" | quote }}
+          volumeMounts:
+            - name: envoy-config
+              mountPath: /etc/envoy
+          resources:
+            requests:
+              cpu: {{ .Values.services.Envoy.resources.requests.cpu | quote }}
+              memory: {{ .Values.services.Envoy.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.services.Envoy.resources.limits.cpu | quote }}
+              memory: {{ .Values.services.Envoy.resources.limits.memory | quote }}
+      volumes:
+        - name: envoy-config
+          configMap:
+            name: {{ include "redis-cache.configMapName" . }}
+{{- else }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-cache-envoy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: redis-cache-envoy
+spec:
+  replicas: {{ .Values.services.Envoy.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: redis-cache-envoy
+  template:
+    metadata:
+      labels:
+        app: redis-cache-envoy
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.services.Envoy.terminationGracePeriodSeconds }}
+      {{- if eq .Values.imagePullSecret.enabled "true" }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret.value }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - redis-cache-envoy
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: envoy
+          image: {{ .Values.services.Envoy.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - -c
+            - /etc/envoy/envoy.yaml
+            - --log-level
+            - {{ .Values.services.Envoy.logLevel }}
+            - --drain-time-s
+            - {{ .Values.services.Envoy.drainTimeout | trimSuffix "s" | quote }}
+            - --concurrency
+            - {{ .Values.services.Envoy.concurrency | quote }}
+          ports:
+            - containerPort: {{ .Values.services.Envoy.servicePort }}
+              name: redis-proxy
+            - containerPort: {{ .Values.services.Envoy.adminPort }}
+              name: envoy-admin
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: envoy-admin
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: envoy-admin
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - sh
+                  - -c
+                  - sleep {{ .Values.services.Envoy.drainTimeout | trimSuffix "s" | quote }}
+          volumeMounts:
+            - name: envoy-config
+              mountPath: /etc/envoy
+          resources:
+            requests:
+              cpu: {{ .Values.services.Envoy.resources.requests.cpu | quote }}
+              memory: {{ .Values.services.Envoy.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.services.Envoy.resources.limits.cpu | quote }}
+              memory: {{ .Values.services.Envoy.resources.limits.memory | quote }}
+      volumes:
+        - name: envoy-config
+          configMap:
+            name: {{ include "redis-cache.configMapName" . }}
+{{- end }}
+{{- end }}

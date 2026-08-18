@@ -16,8 +16,8 @@ spec:
     app: redis-db
     redis-index: "0"
   ports:
-    - port: {{ .Values.services.RedisDB.port }}
-      targetPort: {{ .Values.services.RedisDB.port }}
+    - port: {{ .Values.services.RedisDB.internalPort }}
+      targetPort: {{ .Values.services.RedisDB.internalPort }}
       name: redis
 
 ---
@@ -37,28 +37,68 @@ spec:
     app: redis-db
     redis-index: {{ $replicaIndex | quote }}
   ports:
-    - port: {{ $.Values.services.RedisDB.port }}
-      targetPort: {{ $.Values.services.RedisDB.port }}
+    - port: {{ $.Values.services.RedisDB.internalPort }}
+      targetPort: {{ $.Values.services.RedisDB.internalPort }}
       name: redis
 {{- end }}
 
 ---
 
+{{- if eq (toString .Values.services.Envoy.enabled) "true" }}
 # ===========================
-# LOAD BALANCER SERVICE (routes to all pods, client discovers master)
+# APP-FACING ENVOY SERVICE
 # ===========================
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis-db
+  name: {{ include "redis-db.envoyServiceName" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: redis-db-envoy
+  ports:
+    - port: {{ .Values.services.RedisDB.port }}
+      targetPort: redis-proxy
+      name: redis
+
+---
+
+# ===========================
+# REDIS MASTER SERVICE (Envoy and replicas route here)
+# ===========================
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "redis-db.masterServiceName" . }}
   namespace: {{ .Release.Namespace }}
 spec:
   type: ClusterIP
   selector:
     app: redis-db
+    role: master
+  ports:
+    - port: {{ .Values.services.RedisDB.internalPort }}
+      targetPort: {{ .Values.services.RedisDB.internalPort }}
+      name: redis
+{{- else }}
+# ===========================
+# APP-FACING REDIS MASTER SERVICE
+# ===========================
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "redis-db.serviceName" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app: redis-db
+    role: master
   ports:
     - port: {{ .Values.services.RedisDB.port }}
-      targetPort: {{ .Values.services.RedisDB.port }}
+      targetPort: {{ .Values.services.RedisDB.internalPort }}
       name: redis
+{{- end }}
 
 {{- end }}

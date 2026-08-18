@@ -1,0 +1,23 @@
+{{- if eq .Values.istio.vs_enabled "true" }}
+
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ .Release.Name }}-inapp-vs
+  namespace: {{ .Release.Namespace }}
+spec:
+  gateways:
+  - {{ .Release.Namespace }}/fyno-gateway
+  hosts:
+  - {{ .Values.vsdomains.inapp }}
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: {{ .Release.Name }}-inapp-svc
+        port:
+          number: 443
+
+{{- end }}

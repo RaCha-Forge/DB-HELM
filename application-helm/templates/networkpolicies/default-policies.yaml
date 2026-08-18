@@ -1,0 +1,72 @@
+{{- if .Values.networkPolicies.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-deny-all-ingress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fyno.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-allow-internal
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fyno.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: {{ .Release.Name }}
+    - podSelector: {}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-allow-egress
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fyno.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+  - to:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 4000
+    - protocol: TCP
+      port: 6379
+    - protocol: TCP
+      port: 6380
+    - protocol: TCP
+      port: 7000
+    - protocol: TCP
+      port: 27017
+    - protocol: TCP
+      port: 3306
+    - protocol: TCP
+      port: 9000
+
+{{- end }}

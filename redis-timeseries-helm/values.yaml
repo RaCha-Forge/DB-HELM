@@ -1,5 +1,5 @@
 # ===========================
-# Redis Cache Helm Chart Values
+# Redis TS Helm Chart Values
 # Optimized for: Application Caching, Session Storage, Temporary Data
 # Strategy: Fast eviction, minimal persistence, speed over durability
 # ===========================
@@ -11,8 +11,7 @@ fullnameOverride: ""
 # Redis configuration
 redis:
   replicaCount: 1  # Number of replica pods (total pods = replicaCount + 1)
-  promotableReplicas: "0,1"  # Comma-separated indexes of replicas eligible for promotion (0-based)
-
+  promotableReplicas: ""  # Comma-separated replica numbers eligible for promotion (empty = all replicas)
 
 # RBAC configuration
 serviceAccount:
@@ -62,23 +61,25 @@ services:
   # Replication Init Job
   ReplicationInitJob:
     enabled: "true"
-    image: 165742853134.dkr.ecr.ap-south-1.amazonaws.com/fyno/redis:8.6.3-arm64
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/redis:8.6.3
 
-  # Redis Cache Configuration - OPTIMIZED FOR CACHING
-  RedisCache:
+  # Redis TS Configuration - OPTIMIZED FOR CACHING
+  RedisTS:
     enabled: "true"
-    image: 165742853134.dkr.ecr.ap-south-1.amazonaws.com/fyno/redis:8.6.3-arm64
-    port: 6005
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/redis:8.6.3
+    port: 6005            # Client-facing Redis port
+    internalPort: 6379    # Local Redis listener inside the pod
     
     # CACHE-OPTIMIZED REDIS CONFIGURATION
     config:
       # Memory Management - Evict keys with TTL first
       maxmemory: "4gb"
-      maxmemoryPolicy: "volatile-lru"  # Only evict keys with TTL (ts pattern)
+      maxmemoryPolicy: "noeviction"  # Only evict keys with TTL (ts pattern)
       maxmemorySamples: 10  # Better LRU accuracy
       
-      # Minimal Persistence - Cache can be regenerated from source
+      # Minimal Persistence - TS can be regenerated from source
       appendonly: "yes"  # NO AOF for maximum write speed
+      appendfsync: "everysec"  # Flush AOF buffer every second (minimal durability)
       save: ""  # Light RDB: only if significant changes
       
       # Fast Eviction & Memory Optimization
@@ -112,12 +113,47 @@ services:
         cpu: "1"
         memory: "5Gi"
 
+  # Envoy proxy for seamless master routing.
+  # Applications should connect to service.name (redis-ts by default);
+  # Envoy routes traffic to the current Redis master service.
+  Envoy:
+    enabled: "true"
+    image: envoyproxy/envoy:v1.30.0
+    mode: DaemonSet         # deployment or daemonset
+    replicas: 2              # Used only when mode=deployment
+    serviceName: ""          # Auto-generated: redis-ts
+    masterServiceName: ""    # Auto-generated: redis-ts-master
+    servicePort: 6005        # Client-facing port exposed by Envoy
+    adminPort: 9901          # Envoy admin interface port
+    connectTimeout: 5s       # Upstream connection timeout
+    maxConnectAttempts: 60
+    idleTimeout: 240s        # Keep TCP sessions open during short failover windows
+    maxDownstreamConnectionDuration: 0s
+    drainTimeout: 180s       # Envoy drain timeout during rollout/shutdown
+    terminationGracePeriodSeconds: 150
+    concurrency: 2
+    logLevel: info
+    dnsRefreshRate: 2s
+    tcpKeepalive:
+      keepaliveTime: 60
+      keepaliveInterval: 10
+      keepaliveProbes: 6
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "100Mi"
+      limits:
+        cpu: "200m"
+        memory: "200Mi"
+
   # Redis Controller (HA Failover)
   RedisController:
     enabled: "true"
-    runAsSidecar: "true"
-    image: 165742853134.dkr.ecr.ap-south-1.amazonaws.com/fyno/mongo:python
-    replicas: 1
+    runAsSidecar: "false"
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/mongo:ha-python
+    replicas: 2
+    checkIntervalSeconds: 1       # How often the controller checks master health
+    failoverThreshold: 3          # Number of consecutive failures before failover
     resources:
       requests:
         cpu: "100m"

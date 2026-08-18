@@ -1,4 +1,4 @@
-{{- if and (eq .Values.services.RedisCache.enabled "true") (eq .Values.services.ReplicationInitJob.enabled "true") }}
+{{- if and (eq .Values.services.RedisTS.enabled "true") (eq .Values.services.ReplicationInitJob.enabled "true") }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -9,14 +9,6 @@ spec:
   template:
     spec:
       restartPolicy: Never
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-{{ toYaml . | nindent 8 }}
-      {{- end }}
       containers:
         - name: init
           image: {{ .Values.services.ReplicationInitJob.image | default "redis/redis-stack-server:latest" }}
@@ -30,16 +22,17 @@ spec:
             - name: REPLICA_COUNT
               value: {{ .Values.redis.replicaCount | quote }}
             - name: REDIS_PORT
-              value: {{ .Values.services.RedisCache.port | quote }}
+              value: {{ .Values.services.RedisTS.internalPort | quote }}
+            - name: SERVICE_PORT
+              value: {{ .Values.services.RedisTS.internalPort | quote }}
           args:
             - |
               set -euo pipefail
-
               PRIMARY_HOST="redis-ts-0-0.redis-ts-0.{{ .Release.Namespace }}.svc.cluster.local"
-              SERVICE_HOST="redis-ts.{{ .Release.Namespace }}.svc.cluster.local"
+              REPLICATION_HOST="$PRIMARY_HOST"
               REPLICA_COUNT="{{ .Values.redis.replicaCount }}"
-              PORT="{{ .Values.services.RedisCache.port }}"
-
+              PORT="{{ .Values.services.RedisTS.internalPort }}"
+              SERVICE_PORT="{{ .Values.services.RedisTS.internalPort }}"
               echo "Waiting for Redis primary (redis-ts-0-0) to be ready..."
               for i in $(seq 1 90); do
                 if redis-cli -h "$PRIMARY_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning ping >/dev/null 2>&1; then
@@ -47,44 +40,31 @@ spec:
                 sleep 2
                 if [ "$i" -eq 90 ]; then echo "Primary not ready after wait"; exit 1; fi
               done
-
-              echo "Configuring primary role..."
-              redis-cli -h "$PRIMARY_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning REPLICAOF NO ONE || true
-
-              echo "Waiting for all $REPLICA_COUNT replicas to be ready..."
+              echo "Waiting for all Redis replicas to be ready..."
               for i in $(seq 1 $REPLICA_COUNT); do
                 REPLICA_HOST="redis-ts-${i}-0.redis-ts-${i}.{{ .Release.Namespace }}.svc.cluster.local"
                 echo "Waiting for replica redis-ts-${i}-0 at $REPLICA_HOST..."
-                
-
-                # Wait for Redis to be ready
-                for j in $(seq 1 90); do
+                for attempt in $(seq 1 90); do
                   if redis-cli -h "$REPLICA_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning ping >/dev/null 2>&1; then
                     echo "  ✓ redis-ts-${i}-0 is ready"
                     break
                   fi
                   sleep 2
-                  if [ "$j" -eq 90 ]; then 
+                  if [ "$attempt" -eq 90 ]; then
                     echo "  ERROR: redis-ts-${i}-0 not ready after 3 minutes"
                     exit 1
                   fi
                 done
               done
-
-              echo "All replicas are ready. Configuring replication..."
+              echo "Configuring replication on all replicas..."
               for i in $(seq 1 $REPLICA_COUNT); do
                 REPLICA_HOST="redis-ts-${i}-0.redis-ts-${i}.{{ .Release.Namespace }}.svc.cluster.local"
                 echo "Configuring replica redis-ts-${i}-0: $REPLICA_HOST"
-
-                echo "Setting up replication on redis-ts-${i}-0 to follow service endpoint..."
-                # Use service endpoint so replicas always follow current primary
+                echo "Setting up replication on redis-ts-${i}-0 to follow $REPLICATION_HOST..."
                 redis-cli -h "$REPLICA_HOST" -p "$PORT" -a "$REDIS_PASSWORD" --no-auth-warning \
-                  REPLICAOF "$SERVICE_HOST" "$PORT"
-
-                echo "✔ redis-ts-${i}-0 configured to replicate from $SERVICE_HOST"
+                  REPLICAOF "$REPLICATION_HOST" "$SERVICE_PORT" || {
+                  echo "ERROR: Failed to configure replication on redis-ts-${i}-0"; exit 1; }
+                echo "✔ redis-ts-${i}-0 configured to replicate from $REPLICATION_HOST"
               done
-
-              echo "✔ All $REPLICA_COUNT replicas configured with replication."
-              echo "✔ Replicas will follow the current primary via service: $SERVICE_HOST"
-              
+              echo "✅ All Redis replicas configured successfully"
 {{- end }}

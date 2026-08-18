@@ -1,0 +1,23 @@
+{{- if eq .Values.istio.vs_enabled "true" }}
+
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ .Release.Name }}-monitoring-vs
+  namespace: {{ .Release.Namespace }}
+spec:
+  gateways:
+  - {{ .Release.Namespace }}/fyno-gateway
+  hosts:
+  - {{ .Values.vsdomains.monitoring }}
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: {{ .Release.Name }}-monitor-svc
+        port:
+          number: 3001
+
+{{- end }}

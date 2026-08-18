@@ -1,47 +1,47 @@
 # ===========================
-# Redis Queue Helm Chart Values
-# Optimized for: Job Queues (Celery, Bull, BullMQ, Sidekiq)
+# Redis LogStream Helm Chart Values
+# Optimized for: Job LogStreams (Celery, Bull, BullMQ, Sidekiq)
 # ===========================
 
 # Override default names (leave empty to use chart defaults)
-nameOverride: "redis-queue"
+nameOverride: "redis-logstream"
 fullnameOverride: ""
 
 # Redis configuration
 redis:
   replicaCount: 1  # Number of replica pods (total pods = replicaCount + 1)
-  promotableReplicas: "0,1"  # Comma-separated indexes of replicas eligible for promotion (0-based)
+  promotableReplicas: ""  # Comma-separated replica numbers eligible for promotion (empty = all replicas)
 
 # RBAC configuration
 serviceAccount:
   create: true
-  name: ""  # Auto-generated: redis-queue-failover-sa
+  name: ""  # Auto-generated: redis-logstream-failover-sa
 
 rbac:
   create: true
-  roleName: ""  # Auto-generated: redis-queue-failover-role
-  roleBindingName: ""  # Auto-generated: redis-queue-failover-rb
+  roleName: ""  # Auto-generated: redis-logstream-failover-role
+  roleBindingName: ""  # Auto-generated: redis-logstream-failover-rb
 
 # ConfigMap configuration
 configMap:
-  name: ""  # Auto-generated: redis-queue-ha-scripts
+  name: ""  # Auto-generated: redis-logstream-ha-scripts
 
 # Secret configuration
 secrets:
-  name: ""  # Auto-generated: redis-queue-secret
+  name: ""  # Auto-generated: redis-logstream-secret
   redisPassword: "Redis#sjahdbckjas"
 
 # Job configuration
 job:
-  name: ""  # Auto-generated: redis-queue-replication-init
+  name: ""  # Auto-generated: redis-logstream-replication-init
 
 # Service configuration
 service:
-  name: ""  # Auto-generated: redis-queue
+  name: ""  # Auto-generated: redis-logstream
 
 # Lease configuration (for HA controller leader election)
 lease:
-  name: ""  # Auto-generated: redis-queue-ha-controller-lease
+  name: ""  # Auto-generated: redis-logstream-ha-controller-lease
 
 # Image pull secret configuration
 imagePullSecret:
@@ -60,13 +60,14 @@ services:
   # Replication Init Job
   ReplicationInitJob:
     enabled: "true"
-    image: 165742853134.dkr.ecr.ap-south-1.amazonaws.com/fyno/redis:latest-arm64
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/redis:8.6.3
 
-  # Redis Queue Configuration - OPTIMIZED FOR JOB QUEUES
-  RedisQueue:
+  # Redis LogStream Configuration - OPTIMIZED FOR JOB QUEUES
+  RedisLogStream:
     enabled: "true"
-    image: 165742853134.dkr.ecr.ap-south-1.amazonaws.com/fyno/redis:latest-arm64
-    port: 6003
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/redis:8.6.3
+    port: 6003            # Client-facing Redis port
+    internalPort: 6379    # Local Redis listener inside the pod
     
     # QUEUE-OPTIMIZED REDIS CONFIGURATION
     config:
@@ -87,7 +88,7 @@ services:
       hz: 10
       
       # Replication
-      replBacklogSize: "256mb"  # Medium backlog for job queues
+      replBacklogSize: "256mb"  # Medium backlog for job logstreams
       replBacklogTtl: 3600
       minReplicasToWrite: 0
       minReplicasMaxLag: 10  # 10 seconds acceptable lag
@@ -105,12 +106,47 @@ services:
         cpu: "2"
         memory: "8Gi"
 
+  # Envoy proxy for seamless master routing.
+  # Applications should connect to service.name (redis-logstream by default);
+  # Envoy routes traffic to the current Redis master service.
+  Envoy:
+    enabled: "true"
+    image: envoyproxy/envoy:v1.30.0
+    mode: DaemonSet         # deployment or daemonset
+    replicas: 2              # Used only when mode=deployment
+    serviceName: ""          # Auto-generated: redis-logstream
+    masterServiceName: ""    # Auto-generated: redis-logstream-master
+    servicePort: 6003        # Client-facing port exposed by Envoy
+    adminPort: 9901          # Envoy admin interface port
+    connectTimeout: 5s       # Upstream connection timeout
+    maxConnectAttempts: 60
+    idleTimeout: 240s        # Keep TCP sessions open during short failover windows
+    maxDownstreamConnectionDuration: 0s
+    drainTimeout: 180s       # Envoy drain timeout during rollout/shutdown
+    terminationGracePeriodSeconds: 150
+    concurrency: 2
+    logLevel: info
+    dnsRefreshRate: 2s
+    tcpKeepalive:
+      keepaliveTime: 60
+      keepaliveInterval: 10
+      keepaliveProbes: 6
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "100Mi"
+      limits:
+        cpu: "200m"
+        memory: "200Mi"
+
   # Redis Controller (HA Failover)
   RedisController:
     enabled: "true"
-    runAsSidecar: "true"
-    image: 165742853134.dkr.ecr.ap-south-1.amazonaws.com/fyno/mongo:python
-    replicas: 1
+    runAsSidecar: "false"
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/mongo:ha-python
+    replicas: 2
+    checkIntervalSeconds: 1       # How often the controller checks master health
+    failoverThreshold: 3          # Number of consecutive failures before failover
     resources:
       requests:
         cpu: "100m"
@@ -118,4 +154,3 @@ services:
       limits:
         cpu: "100m"
         memory: "200Mi"
-

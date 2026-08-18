@@ -3,10 +3,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "redis-queue.roleName" . }}
+  name: {{ include "redis-logstream.roleName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "redis-queue.labels" . | nindent 4 }}
+    {{- include "redis-logstream.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["pods", "pods/label"]

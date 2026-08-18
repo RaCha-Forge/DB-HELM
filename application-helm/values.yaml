@@ -1,0 +1,1156 @@
+imagePullSecret:
+  enabled: 'false'
+  value: ecr-secret
+  
+imagePullPolicy: IfNotPresent
+
+probe:
+  enabled: 'true'
+
+networkPolicies:
+  enabled: false
+
+istio:
+  gw_enabled: 'false'
+  vs_enabled: 'true'
+  secret_name: esaforg2026-tls
+
+f5:
+  vs_enabled: 'false'
+  virtualServerAddress: 10.240.63.6
+
+proxy:
+  enabled: 'false'
+  http: http://10.240.97.11:8090 
+  https: http://10.240.97.11:8090
+  cert:
+    path: proxy-ca-cert
+    name: proxycert.crt 
+    enabled: 'false'
+
+TLS_END_TO_END:
+  enabled: 'true'
+
+
+domains:
+  ssl: true
+  api: eks-api.dev.fyno.io
+  app_api: eks-app-api.dev.fyno.io
+  app: eks-app.dev.fyno.io
+  callback: eks-callback.dev.fyno.io  #internet for delivery
+  inapp: eks-inapp.dev.fyno.io #not in use configure for testing 
+  monitoring: eks-monitor.dev.fyno.io
+  media: eks-media.dev.fyno.io #internet
+  shoty: eks-fy1.dev.fyno.io   #internet
+  unsubscribe: eks-dev-thelistmanager.dev.fyno.io #not in use to configure for testing
+  license: licensemanager.fyno.io #not in use
+vsdomains:
+  api: eks-api.dev.fyno.io
+  app_api: eks-app-api.dev.fyno.io
+  app: eks-app.dev.fyno.io
+  callback: eks-callback.dev.fyno.io
+  inapp: eks-inapp.dev.fyno.io #not in use configure for testing
+  monitoring: eks-monitor.dev.fyno.io
+  media: eks-media.dev.fyno.io
+  shoty: eks-fy1.dev.fyno.io
+  unsubscribe: eks-dev-thelistmanager.dev.fyno.io #not in use to configure for testing
+  db: eks-db.dev.fyno.io
+  prometheus: ''
+  grafana: ''
+  license: licensemanager.fyno.io #not in use
+db:
+  REDIS_QUEUE_HOST: redis-queue.fyno.svc.cluster.local
+  REDIS_QUEUE_PORT: '6000'
+  REDIS_QUEUE_USER: 'ilsancharv2'
+  REDIS_QUEUE_PASSWORD: ilsancharv2
+  REDIS_CACHE_CLUSTER: 'false'
+  REDIS_CACHE_HOST: redis-cache.fyno.svc.cluster.local
+  REDIS_CACHE_PORT: '6001'
+  REDIS_CACHE_USER: ''
+  REDIS_CACHE_PASSWORD: ilsancharv2
+  REDIS_DB_HOST: redis-cache.fyno.svc.cluster.local
+  REDIS_DB_PORT: '6001'
+  REDIS_DB_USER: ''
+  REDIS_DB_PASSWORD: ilsancharv2
+  MARIA_DB_HOST: il-rds-ilsancharv2db-du.cyie8eg8xyrz.ap-south-1.rds.amazonaws.com
+  MARIA_DB_PORT: '1599'
+  MARIA_DB_USER: admin
+  MARIA_DB_PASSWORD: 'Master#123' 
+  MONGO_DB_HOST: mongo.fyno.svc.cluster.local
+  MONGO_DB_PORT: '28128'
+  MONGO_DB_USER: ilsancharv2
+  MONGO_DB_PASSWORD: Ilsancharv2
+  MINIO_HOST: 'localhost'
+  MINIO_PORT: '1234'
+  MINIO_USER: 'admin'
+  MINIO_PASSWORD: 'admin@123'
+
+common_env:
+  DB_CONNECTION_LIMIT: '1'
+  CONNECTION_LIMIT: '1'
+  PROCESS_COUNT: '1'
+  PROCESS_CONCURRENCY: '200'
+
+
+
+services:
+  aiservice:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-smartservice-du:26-2-5-17
+    replicas: 1
+    ports:
+    - 8000
+    svcPorts:
+    - port: 80
+      targetPort: 8000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '0.5'
+        memory: 500Mi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: null
+    normal_command: ./startai.sh
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels: 
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  analytics:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-analytics-du:prod-8263f398
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 80
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: null
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  api_service:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    env:
+      HTTPS_PORT: 8443
+    ports:
+    - 4001
+    svcPorts:
+    - port: 80
+      targetPort: 4001
+    - port: 443
+      targetPort: 8443
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: api:live
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  apiservice:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    env:
+      HTTPS_PORT: 8443
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    - port: 443
+      targetPort: 8443
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: api_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  automationservice:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: automation_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  backend:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    env:
+      HTTPS_PORT: 8443
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    - port: 443
+      targetPort: 8443
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 2
+      cpuTarget: 50
+      memoryTarget: 50
+    npm_command: backend:live
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  c_api:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    env:
+      LAUNCH_CAMPAIGN_QUEUE: enable
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: api_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  c_event:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    env:
+      LAUNCH_CAMPAIGN_QUEUE: enable
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: event_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: k
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  c_transporter:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    env:
+      LAUNCH_CAMPAIGN_QUEUE: enable
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 25
+      memoryTarget: 25
+    npm_command: transporter_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  callback:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    ports:
+    - 4002
+    svcPorts:
+    - port: 80
+      targetPort: 4002
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 1
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: callback_services:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  dlr:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    env:
+     URL_SHORTNER_HTTPS_PORT: 6443
+     HTTPS_PORT: 8443
+    ports:
+    - 4002
+    svcPorts:
+    - port: 80
+      targetPort: 4002
+    - port: 8080
+      targetPort: 4003
+    - port: 443
+      targetPort: 8443
+    - port: 6443
+      targetPort: 6443
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: dlr_service:live
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  eventservice:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: event_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  frontend:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-frontend-du:26-2-5-11
+    replicas: 1
+    ports:
+    - 3000
+    svcPorts:
+    - port: 443
+      targetPort: 3000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '0.3'
+        memory: 400Mi
+      limits:
+        cpu: '0.5'
+        memory: 1Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: null
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  docs:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-fynodocs-du:prod-a3af7216
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: null
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  inapp:
+    enabled: 'false'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-smartapiservice-du:prod-f27cca5b
+    replicas: 1
+    ports:
+    - 4500
+    - 4000
+    svcPorts:
+    - port: 443
+      targetPort: 4500
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: inapp:live
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  log:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: log_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  smart:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-smartservice-du:26-2-5-17
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: null
+    normal_command: "python3 listener.py"
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  transporter:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 25
+      memoryTarget: 25
+    npm_command: transporter_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  monitor:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-monitor-du:prod-962999c3
+    replicas: 1
+    ports:
+    - 3001
+    svcPorts:
+    - port: 3001
+      targetPort: 3001
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '0.5'
+        memory: 300Mi
+      limits:
+        cpu: '0.5'
+        memory: 500Mi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: null
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  logstream:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 40
+      memoryTarget: 40
+    npm_command: logstream_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+  license:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-licenseservice-du:prod-1a14c139
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 4000
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '0.5'
+        memory: 100Mi
+      limits:
+        cpu: '0.5'
+        memory: 100Mi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 40
+      memoryTarget: 40
+    npm_command: null
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []

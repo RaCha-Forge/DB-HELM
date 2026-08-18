@@ -1,0 +1,28 @@
+{{- if eq .Values.services.license.enabled "true" }}
+
+apiVersion: v1
+data:
+  PORT: {{ (index .Values.services.license.ports 0) | quote }}
+  LICENSE_CENTRAL_URL: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.license }}/api/v1
+  OFFLINE_LICENSE_PUBLIC_KEY: |
+    -----BEGIN PUBLIC KEY-----
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0EltcYFVQKYp++H9Z72z
+    AX+m648ctdcRJ3DRlzsp5kiQOY4mYatYPY3SsfGU0hs8PZKIDS0gJpw+/OTBda+G
+    TjIk+IaFF4IT5VTq3bsZvwSrnUYHne8Pa7zPaLjdEDsVaeeXsQuoukolD4LviAbs
+    JdNbqZ7wFodPe9hMRR980Bft/MY4Lo8HW3T9RpLJtJkJ583rOvz6hiOS2rmT5m4t
+    /yvP2bC/L2N3NoQtmaUvnELV4UAoVXdTRSUs/Br6u75KPkraoQdgB6cSBMG8/+0w
+    fd/JPvTH7uQPTLYSzH204oCmfQwOa3xaPSnBxvTp1b7Cpjmv/C/IgdrQAEweNxcA
+    uwIDAQAB
+    -----END PUBLIC KEY-----
+  LICENSE_KEY: eyJsaWNlbnNlX2tleSI6IkxJQy1WSjNWTUk3MCIsInByb2R1Y3QiOiJmeW5vLW1lc3NhZ2luZyIsImFjdGl2YXRpb25fbW9kZSI6Ik9GRkxJTkUiLCJ2YWxpZF91bnRpbCI6IjIwMjctMDMtMDlUMTE6MDM6NDIuMDAwWiIsImZlYXR1cmVzIjp7fX0=.nugiq2Wtkc4zjTz03/LUtZ7ktYYlfUQsBqoakqpeuOqjoOLZ5kjoo0VOsLPqHGd1TasaBui6it3Zoxwaz4hifUinm5GHVS89OhM3PfcsxTiE51m/EIcwQ6NfuuvX5R8vUeFX7Dmfi3F/bJeJGXFIRgEEFIuCqMhsiLvEm6xFv03y8JZZkMbO1lOmUaLMEyLLdEmO1dnfBRiebWy2fG9MXyn0mt9XYx8EzI+aSpno+cerr0l8x7D8XcJmjP9MdiXd/0B0DuxoZsWMdjD5H33q8e5FFolG3oPHi7adlF+jta67XmgCGlTkJoi/GuvdQKEprl5ChN7TcBU1PRFXi13rkQ==
+  LICENSE_MODE: OFFLINE 
+  PROVISION_TOKEN: 3bb3556182844e5e153acb9836c605365c3d4d67258eb61e15b101b59a4b7b36 
+  INSTANCE_ID: LIC-VJ3VMI70
+  LOG_LEVEL: debug
+  REDIS_CLUSTER: "false"
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-license-config
+  namespace: {{ .Release.Namespace }}
+
+{{- end }}

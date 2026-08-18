@@ -14,34 +14,11 @@ spec:
       labels:
         app: redis-db-ha-controller
     spec:
-      serviceAccountName: redis-failover-sa
+      serviceAccountName: {{ include "redis-db.serviceAccountName" . }}
       {{- if eq .Values.imagePullSecret.enabled "true" }}
       imagePullSecrets:
         - name: {{ .Values.imagePullSecret.value }}
       {{- end }}
-      
-      # --------------------------
-      # INIT CONTAINER
-      # --------------------------
-      initContainers:
-        - name: install-deps
-          image: {{ .Values.services.RedisController.image }}
-          imagePullPolicy: {{ .Values.imagePullPolicy }}
-          command:
-            - /bin/bash
-            - -c
-            - |
-              pip install --no-cache-dir redis kubernetes --target=/deps
-          volumeMounts:
-            - name: deps
-              mountPath: /deps
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "128Mi"
-            limits:
-              cpu: "100m"
-              memory: "256Mi"
 
       # --------------------------
       # MAIN CONTROLLER
@@ -50,11 +27,7 @@ spec:
         - name: ha-controller
           image: {{ .Values.services.RedisController.image }}
           imagePullPolicy: {{ .Values.imagePullPolicy }}
-          command:
-            - /bin/sh
-            - -c
-            - |
-              python /app/redis_ha_controller.py
+          command: ["python3", "/app/redis_ha_controller.py"]
           env:
             - name: POD_NAME
               valueFrom:
@@ -68,8 +41,16 @@ spec:
               value: "redis-db-0-0.redis-db-0"
             - name: SERVICE_NAME
               value: "redis-db"
+            - name: SERVICE_HOST
+              value: "redis-db-0-0.redis-db-0.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: SERVICE_PORT
+              value: {{ .Values.services.RedisCache.internalPort | quote }}
             - name: REDIS_PORT
-              value: {{ .Values.services.RedisDB.port | quote }}
+              value: {{ .Values.services.RedisCache.internalPort | quote }}
+            - name: CHECK_INTERVAL_SECONDS
+              value: {{ .Values.services.RedisController.checkIntervalSeconds | quote }}
+            - name: FAILOVER_THRESHOLD
+              value: {{ .Values.services.RedisController.failoverThreshold | quote }}
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -107,7 +88,7 @@ spec:
       volumes:
         - name: script
           configMap:
-            name: redis-ha-scripts
+            name: {{ include "redis-db.configMapName" . }}
         - name: deps
           emptyDir: {}
 

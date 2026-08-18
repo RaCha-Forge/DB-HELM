@@ -1,0 +1,35 @@
+{{- if eq .Values.f5.vs_enabled "true" }}
+
+apiVersion: cis.f5.com/v1
+kind: VirtualServer
+metadata:
+  name: {{ .Release.Name }}-media-vs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    f5cr: "true"
+spec:
+  host: {{ .Values.vsdomains.media }}
+  hostGroup: fyno-apps
+  virtualServerAddress: {{ .Values.f5.virtualServerAddress }}
+  tlsProfileName: k8s-esafbankorg-tls-edge
+  bigipRouteDomain: 70
+  policies:
+    - name: minio-upload-policy
+  pools:
+    - path: /uploads
+      #service: {{ .Values.db.MINIO_HOST }}
+      service: minio
+      servicePort: 9000
+      rewrite: /fyno-app/media/uploads
+      monitor:
+        type: tcp
+
+    - path: /downloads
+      #service: {{ .Values.db.MINIO_HOST }}
+      service: minio
+      servicePort: 9000
+      rewrite: /fyno-app/media/downloads
+      monitor:
+        type: tcp
+
+{{- end }}

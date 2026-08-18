@@ -1,0 +1,34 @@
+{{- if eq .Values.istio.vs_enabled "true" }}
+
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ .Release.Name }}-media-vs
+  namespace: {{ .Release.Namespace }}
+spec:
+  gateways:
+  - {{ .Release.Namespace }}/fyno-gateway
+  hosts:
+  - {{ .Values.vsdomains.media }}
+  http:
+  - match:
+    - uri:
+        prefix: /uploads
+    rewrite:
+      uri: /fyno-app/media/uploads
+    route:
+    - destination:
+        host: {{ .Values.db.MINIO_HOST }}
+        port:
+          number: 9000
+  - match:
+    - uri:
+        prefix: /downloads
+    rewrite:
+      uri: /fyno-app/media/downloads
+    route:
+    - destination:
+        host: {{ .Values.db.MINIO_HOST }}
+        port:
+          number: 9000
+{{- end }}
