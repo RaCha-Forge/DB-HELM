@@ -126,8 +126,9 @@ services:
     servicePort: 6001        # Client-facing port exposed by Envoy
     adminPort: 9901          # Envoy admin interface port
     connectTimeout: 5s       # Upstream connection timeout
-    maxConnectAttempts: 60
-    idleTimeout: 240s        # Keep TCP sessions open during short failover windows
+    maxConnectAttempts: 1000000  
+    # maxEarlyDataBytes: 10485760
+    idleTimeout: 0s        # Keep TCP sessions open during short failover windows
     maxDownstreamConnectionDuration: 0s
     drainTimeout: 180s       # Envoy drain timeout during rollout/shutdown
     terminationGracePeriodSeconds: 150

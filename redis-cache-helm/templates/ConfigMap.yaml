@@ -29,6 +29,7 @@ data:
                     max_downstream_connection_duration: {{ $.Values.services.Envoy.maxDownstreamConnectionDuration }}
 {{- end }}
                     max_connect_attempts: {{ $.Values.services.Envoy.maxConnectAttempts }}
+                    # max_early_data_bytes: {{ $.Values.services.Envoy.maxEarlyDataBytes }}
       clusters:
         - name: redis_upstream
           connect_timeout: {{ $.Values.services.Envoy.connectTimeout }}
