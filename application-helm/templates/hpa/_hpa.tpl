@@ -2,7 +2,7 @@
 {{- $serviceName := .serviceName -}}
 {{- $serviceConfig := index .Values.services $serviceName -}}
 {{- $serviceNameNormalized := $serviceName | replace "_" "-" -}}
-{{- if and (eq $serviceConfig.enabled "true") (eq $serviceConfig.hpa.enabled "true") }}
+{{- if and (eq ($serviceConfig.enabled | toString | lower) "true") (eq ($serviceConfig.hpa.enabled | toString | lower) "true") }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -16,8 +16,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ .Release.Name }}-{{ $serviceNameNormalized }}-service
-  minReplicas: {{ $serviceConfig.hpa.minReplicas | default 1 }}
-  maxReplicas: {{ $serviceConfig.hpa.maxReplicas | default 3 }}
+  minReplicas: {{ if hasKey $serviceConfig.hpa "minReplicas" }}{{ $serviceConfig.hpa.minReplicas }}{{ else }}1{{ end }}
+  maxReplicas: {{ if hasKey $serviceConfig.hpa "maxReplicas" }}{{ $serviceConfig.hpa.maxReplicas }}{{ else }}3{{ end }}
   metrics:
   - type: Resource
     resource:

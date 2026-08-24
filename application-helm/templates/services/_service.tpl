@@ -2,7 +2,7 @@
 {{- $serviceName := .serviceName -}}
 {{- $serviceConfig := index .Values.services $serviceName -}}
 {{- $serviceNameNormalized := $serviceName | replace "_" "-" -}}
-{{- if eq $serviceConfig.enabled "true" }}
+{{- if eq ($serviceConfig.enabled | toString | lower) "true" }}
 apiVersion: v1
 kind: Service
 metadata:

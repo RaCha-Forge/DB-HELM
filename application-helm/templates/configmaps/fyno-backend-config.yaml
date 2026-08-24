@@ -81,6 +81,10 @@ data:
   PROCESS_COUNT: "{{ .Values.common_env.PROCESS_COUNT }}"
   PROCESS_CONCURRENCY: "{{ .Values.common_env.PROCESS_CONCURRENCY }}"
   LICENSE_SERVICE_URL: http://{{ .Release.Name }}-license-svc.{{ .Release.Namespace }}.svc.cluster.local:4000
+  {{- if eq (.Values.services.trino.enabled | toString | lower) "true" }}
+  TRINO_URL: http://{{ .Release.Name }}-trino-worker-svc.{{ .Release.Namespace }}.svc.cluster.local:80
+  TRINO_QUERY: enable
+  {{- end}}
   {{- if eq .Values.TLS_END_TO_END.enabled "true"}}
   SSL_CERT_PATH: /etc/ssl/tls/tls.crt
   SSL_KEY_PATH: /etc/ssl/tls/tls.key

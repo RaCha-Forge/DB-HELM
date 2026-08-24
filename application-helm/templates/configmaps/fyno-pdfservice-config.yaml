@@ -1,0 +1,8 @@
+{{- if eq (.Values.services.pdfservice.enabled | toString | lower) "true" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-pdfservice-config
+  namespace: {{ .Release.Namespace }}
+data: {}
+{{- end }}

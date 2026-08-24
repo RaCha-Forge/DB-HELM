@@ -2,9 +2,15 @@
 {{- $serviceName := .serviceName -}}
 {{- $serviceConfig := index .Values.services $serviceName -}}
 {{- $serviceNameNormalized := $serviceName | replace "_" "-" -}}
-{{- if eq $serviceConfig.enabled "true" }}
+{{- $root := . -}}
+{{- $workloadType := $serviceConfig.workloadType | default "Deployment" | lower -}}
+{{- $trinoInitCommand := "cp -R /etc/trino/. /mnt/trino-config/ && mkdir -p /mnt/trino-data/var/run" -}}
+{{- if eq $serviceName "trino" -}}
+{{- $trinoInitCommand = "cp -R /etc/trino/. /mnt/trino-config/ && mkdir -p /mnt/trino-data/var/run /mnt/trino/data/metastore && test -w /mnt/trino/data/metastore && touch /mnt/trino/data/metastore/.trino-write-test && rm -f /mnt/trino/data/metastore/.trino-write-test" -}}
+{{- end -}}
+{{- if eq ($serviceConfig.enabled | toString | lower) "true" }}
 apiVersion: apps/v1
-kind: Deployment
+kind: {{ if eq $workloadType "statefulset" }}StatefulSet{{ else }}Deployment{{ end }}
 metadata:
   name: {{ .Release.Name }}-{{ $serviceNameNormalized }}-service
   namespace: {{ .Release.Namespace }}
@@ -13,6 +19,16 @@ metadata:
     app: {{ .Release.Name }}-{{ $serviceNameNormalized }}-service
 spec:
   replicas: {{ $serviceConfig.replicas }}
+  {{- if eq $workloadType "statefulset" }}
+  serviceName: {{ .Release.Name }}-{{ $serviceNameNormalized }}-svc
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-{{ $serviceNameNormalized }}-service
+      service: {{ $serviceName }}
+  {{- else }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}-{{ $serviceNameNormalized }}-service
@@ -22,6 +38,7 @@ spec:
       maxSurge: 25%
       maxUnavailable: 25%
     type: RollingUpdate
+  {{- end }}
   template:
     metadata:
       labels:
@@ -30,13 +47,58 @@ spec:
         {{- include "fyno.labels" . | nindent 8 }}
     spec:
       {{- include "fyno.imagePullSecrets" . | nindent 6 }}
+      {{- if or (eq $serviceName "trino") (eq $serviceName "trino_worker") }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      {{- else }}
       {{- include "fyno.podSecurityContext" . | nindent 6 }}
+      {{- end }}
+      {{- if or (eq $serviceName "trino") (eq $serviceName "trino_worker") }}
+      initContainers:
+      - name: prepare-trino-filesystem
+        image: {{ $serviceConfig.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        command:
+        - /bin/sh
+        - -c
+        - {{ $trinoInitCommand | quote }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+              - ALL
+        volumeMounts:
+        - name: trino-config
+          mountPath: /mnt/trino-config
+        - name: trino-data
+          mountPath: /mnt/trino-data
+        {{- if eq $serviceName "trino" }}
+        - name: persistent-storage
+          mountPath: /mnt/trino
+        {{- end }}
+      {{- end }}
       containers:
       - name: {{ .Release.Name }}-{{ $serviceNameNormalized }}
         image: {{ $serviceConfig.image }}
         imagePullPolicy: {{ .Values.imagePullPolicy }}
         {{- if $serviceConfig.npm_command }}
         command: ["npm", "run", "{{ $serviceConfig.npm_command }}"]
+        {{- end }}
+        {{- if $serviceConfig.command }}
+        command: {{ toJson $serviceConfig.command }}
+        {{- end }}
+        {{- if $serviceConfig.args }}
+        args: {{ toJson $serviceConfig.args }}
         {{- end }}
         {{- if $serviceConfig.normal_command }}
         command: {{ splitList " " $serviceConfig.normal_command | toJson }}
@@ -54,10 +116,20 @@ spec:
         env:
         - name: APP_NAME
           value: {{ .Release.Name }}-{{ $serviceName }}-service
+        {{- if or (eq $serviceName "trino") (eq $serviceName "trino_worker") }}
+        - name: HOME
+          value: /tmp
+        {{- end }}
+        {{- if or (eq $serviceName "trino") (eq $serviceName "trino_worker") }}
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        {{- end }}
         {{- if $serviceConfig.env }}
         {{- range $key, $value := $serviceConfig.env }}
         - name: {{ $key }}
-          value: {{ $value | quote }}
+          value: {{ tpl ($value | toString) $root | quote }}
         {{- end }}
         {{- end }}
         envFrom:
@@ -65,7 +137,25 @@ spec:
             name: {{ include "fyno.configMapName" (dict "serviceName" $serviceName "Release" .Release) }}
         - secretRef:
             name: {{ include "fyno.secretName" (dict "serviceName" $serviceName "Release" .Release) }}
-        {{- include "fyno.containerSecurityContext" . | nindent 8 }}
+        {{- if or (eq $serviceName "trino") (eq $serviceName "trino_worker") }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+              - ALL
+        {{- else }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          readOnlyRootFilesystem: {{ $serviceConfig.readOnlyRootFilesystem | default false }}
+          capabilities:
+            drop:
+              - ALL
+        {{- end }}
         {{- if and $serviceConfig.resources (eq $serviceConfig.resources.enabled "true") }}
         resources:
           limits:
@@ -78,6 +168,26 @@ spec:
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
+        {{- if or (eq $serviceName "trino") (eq $serviceName "trino_worker") }}
+        - name: trino-config
+          mountPath: /etc/trino
+        - name: trino-data
+          mountPath: /data/trino
+        {{- end }}
+        {{- if and $serviceConfig.persistence (eq ($serviceConfig.persistence.enabled | toString | lower) "true") }}
+        - name: persistent-storage
+          mountPath: {{ $serviceConfig.persistence.mountPath | default "/data" }}
+        {{- end }}
+        {{- if $serviceConfig.tmpfs }}
+        {{- range $tmpfs := $serviceConfig.tmpfs }}
+        - name: {{ $tmpfs.name }}
+          mountPath: {{ $tmpfs.mountPath }}
+        {{- end }}
+        {{- end }}
+        {{- if $serviceConfig.scratch }}
+        - name: scratch
+          mountPath: /tmp
+        {{- end }}
         {{- if eq .Values.proxy.cert.enabled "true"}}
         - mountPath: /etc/ssl/{{.Values.proxy.cert.path }}
           name: {{.Values.proxy.cert.path }}
@@ -112,6 +222,29 @@ spec:
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       volumes:
+        {{- if or (eq $serviceName "trino") (eq $serviceName "trino_worker") }}
+        - name: trino-config
+          emptyDir: {}
+        - name: trino-data
+          emptyDir: {}
+        {{- end }}
+        {{- if and $serviceConfig.persistence (eq ($serviceConfig.persistence.enabled | toString | lower) "true") }}
+        - name: persistent-storage
+          persistentVolumeClaim:
+            claimName: {{ if $serviceConfig.persistence.existingClaim }}{{ $serviceConfig.persistence.existingClaim }}{{ else }}{{ .Release.Name }}-{{ $serviceNameNormalized }}-pvc{{ end }}
+        {{- end }}
+        {{- if $serviceConfig.scratch }}
+        - name: scratch
+          emptyDir: {}
+        {{- end }}
+        {{- if $serviceConfig.tmpfs }}
+        {{- range $tmpfs := $serviceConfig.tmpfs }}
+        - name: {{ $tmpfs.name }}
+          emptyDir:
+            medium: Memory
+            sizeLimit: {{ $tmpfs.sizeLimit }}
+        {{- end }}
+        {{- end }}
         {{- if eq .Values.proxy.cert.enabled "true"}}
         - configMap:
             defaultMode: 420

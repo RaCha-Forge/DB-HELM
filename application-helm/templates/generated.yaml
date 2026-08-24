@@ -29,7 +29,7 @@
 ---
 {{- include "fyno.deployment" (dict "serviceName" "frontend" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---
-{{- include "fyno.deployment" (dict "serviceName" "docs" "Values" .Values "Release" .Release "Chart" .Chart) }}
+{{- include "fyno.deployment" (dict "serviceName" "pdfservice" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---
 {{- include "fyno.deployment" (dict "serviceName" "inapp" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---
@@ -44,6 +44,10 @@
 {{- include "fyno.deployment" (dict "serviceName" "monitor" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---
 {{- include "fyno.deployment" (dict "serviceName" "logstream" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.deployment" (dict "serviceName" "trino" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.deployment" (dict "serviceName" "trino_worker" "Values" .Values "Release" .Release "Chart" .Chart) }}
 
 {{/* Services */}}
 ---
@@ -64,6 +68,12 @@
 {{- include "fyno.service" (dict "serviceName" "license" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---
 {{- include "fyno.service" (dict "serviceName" "monitor" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.service" (dict "serviceName" "trino" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.service" (dict "serviceName" "trino_worker" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.service" (dict "serviceName" "pdfservice" "Values" .Values "Release" .Release "Chart" .Chart) }}
 
 {{/* HPAs */}}
 ---
@@ -91,7 +101,7 @@
 ---
 {{- include "fyno.hpa" (dict "serviceName" "eventservice" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---
-{{- include "fyno.hpa" (dict "serviceName" "docs" "Values" .Values "Release" .Release "Chart" .Chart) }}
+{{- include "fyno.hpa" (dict "serviceName" "pdfservice" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---
 {{- include "fyno.hpa" (dict "serviceName" "inapp" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---

@@ -12,21 +12,24 @@ networkPolicies:
 
 istio:
   gw_enabled: 'false'
-  vs_enabled: 'true'
+  vs_enabled: 'false'
   secret_name: esaforg2026-tls
+
 
 f5:
   vs_enabled: 'false'
   virtualServerAddress: 10.240.63.6
 
+
 proxy:
   enabled: 'false'
-  http: http://10.240.97.11:8090 
+  http: http://10.240.97.11:8090
   https: http://10.240.97.11:8090
   cert:
     path: proxy-ca-cert
-    name: proxycert.crt 
+    name: proxycert.crt
     enabled: 'false'
+
 
 TLS_END_TO_END:
   enabled: 'true'
@@ -37,11 +40,11 @@ domains:
   api: eks-api.dev.fyno.io
   app_api: eks-app-api.dev.fyno.io
   app: eks-app.dev.fyno.io
-  callback: eks-callback.dev.fyno.io  #internet for delivery
+  callback: eks-callback.dev.fyno.io #internet for delivery
   inapp: eks-inapp.dev.fyno.io #not in use configure for testing 
   monitoring: eks-monitor.dev.fyno.io
   media: eks-media.dev.fyno.io #internet
-  shoty: eks-fy1.dev.fyno.io   #internet
+  shoty: eks-fy1.dev.fyno.io #internet
   unsubscribe: eks-dev-thelistmanager.dev.fyno.io #not in use to configure for testing
   license: licensemanager.fyno.io #not in use
 vsdomains:
@@ -58,32 +61,35 @@ vsdomains:
   prometheus: ''
   grafana: ''
   license: licensemanager.fyno.io #not in use
+
+
 db:
   REDIS_QUEUE_HOST: redis-queue.fyno.svc.cluster.local
-  REDIS_QUEUE_PORT: '6000'
+  REDIS_QUEUE_PORT: 6000
   REDIS_QUEUE_USER: 'ilsancharv2'
-  REDIS_QUEUE_PASSWORD: ilsancharv2
+  REDIS_QUEUE_PASSWORD: "Redis@fyno"
   REDIS_CACHE_CLUSTER: 'false'
   REDIS_CACHE_HOST: redis-cache.fyno.svc.cluster.local
-  REDIS_CACHE_PORT: '6001'
+  REDIS_CACHE_PORT: 6001
   REDIS_CACHE_USER: ''
-  REDIS_CACHE_PASSWORD: ilsancharv2
-  REDIS_DB_HOST: redis-cache.fyno.svc.cluster.local
-  REDIS_DB_PORT: '6001'
+  REDIS_CACHE_PASSWORD: "qwertyuiop"
+  REDIS_DB_HOST: redis-db.fyno.svc.cluster.local
+  REDIS_DB_PORT: 6001
   REDIS_DB_USER: ''
-  REDIS_DB_PASSWORD: ilsancharv2
+  REDIS_DB_PASSWORD: "qazwsxedcrfv"
   MARIA_DB_HOST: il-rds-ilsancharv2db-du.cyie8eg8xyrz.ap-south-1.rds.amazonaws.com
   MARIA_DB_PORT: '1599'
   MARIA_DB_USER: admin
-  MARIA_DB_PASSWORD: 'Master#123' 
+  MARIA_DB_PASSWORD: 'Master#123'
   MONGO_DB_HOST: mongo.fyno.svc.cluster.local
-  MONGO_DB_PORT: '28128'
-  MONGO_DB_USER: ilsancharv2
-  MONGO_DB_PASSWORD: Ilsancharv2
+  MONGO_DB_PORT: 28128
+  MONGO_DB_USER: "fynodev_mongouser"
+  MONGO_DB_PASSWORD: "Bw2PIzA4MI3m9zbV"
   MINIO_HOST: 'localhost'
   MINIO_PORT: '1234'
   MINIO_USER: 'admin'
   MINIO_PASSWORD: 'admin@123'
+
 
 common_env:
   DB_CONNECTION_LIMIT: '1'
@@ -92,17 +98,16 @@ common_env:
   PROCESS_CONCURRENCY: '200'
 
 
-
 services:
   aiservice:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-smartservice-du:26-2-5-17
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-smartservice-du:26-2-5-17
     replicas: 1
     ports:
-    - 8000
+      - 8000
     svcPorts:
-    - port: 80
-      targetPort: 8000
+      - port: 80
+        targetPort: 8000
     resources:
       enabled: 'true'
       requests:
@@ -136,7 +141,7 @@ services:
     scheduling:
       nodeSelector:
         enabled: false
-        labels: 
+        labels:
           app: fyno
       affinity:
         enabled: false
@@ -146,13 +151,13 @@ services:
         items: []
   analytics:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-analytics-du:prod-8263f398
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-analytics-du:prod-8263f398
     replicas: 1
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 80
+      - port: 80
+        targetPort: 80
     resources:
       enabled: 'true'
       requests:
@@ -195,17 +200,17 @@ services:
         items: []
   api_service:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     env:
       HTTPS_PORT: 8443
     ports:
-    - 4001
+      - 4001
     svcPorts:
-    - port: 80
-      targetPort: 4001
-    - port: 443
-      targetPort: 8443
+      - port: 80
+        targetPort: 4001
+      - port: 443
+        targetPort: 8443
     resources:
       enabled: 'true'
       requests:
@@ -248,17 +253,17 @@ services:
         items: []
   apiservice:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     env:
       HTTPS_PORT: 8443
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 4000
-    - port: 443
-      targetPort: 8443
+      - port: 80
+        targetPort: 4000
+      - port: 443
+        targetPort: 8443
     resources:
       enabled: 'true'
       requests:
@@ -301,13 +306,13 @@ services:
         items: []
   automationservice:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 4000
+      - port: 80
+        targetPort: 4000
     resources:
       enabled: 'true'
       requests:
@@ -350,17 +355,17 @@ services:
         items: []
   backend:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     env:
       HTTPS_PORT: 8443
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 4000
-    - port: 443
-      targetPort: 8443
+      - port: 80
+        targetPort: 4000
+      - port: 443
+        targetPort: 8443
     resources:
       enabled: 'true'
       requests:
@@ -403,15 +408,17 @@ services:
         items: []
   c_api:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     env:
       LAUNCH_CAMPAIGN_QUEUE: enable
+    scratch: true
+    readOnlyRootFilesystem: true
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 4000
+      - port: 80
+        targetPort: 4000
     resources:
       enabled: 'true'
       requests:
@@ -454,15 +461,17 @@ services:
         items: []
   c_event:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     env:
       LAUNCH_CAMPAIGN_QUEUE: enable
+    scratch: true
+    readOnlyRootFilesystem: true
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 4000
+      - port: 80
+        targetPort: 4000
     resources:
       enabled: 'true'
       requests:
@@ -505,15 +514,17 @@ services:
         items: []
   c_transporter:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     env:
       LAUNCH_CAMPAIGN_QUEUE: enable
+    scratch: true
+    readOnlyRootFilesystem: true
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 4000
+      - port: 80
+        targetPort: 4000
     resources:
       enabled: 'true'
       requests:
@@ -556,13 +567,13 @@ services:
         items: []
   callback:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     ports:
-    - 4002
+      - 4002
     svcPorts:
-    - port: 80
-      targetPort: 4002
+      - port: 80
+        targetPort: 4002
     resources:
       enabled: 'true'
       requests:
@@ -605,22 +616,22 @@ services:
         items: []
   dlr:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     env:
-     URL_SHORTNER_HTTPS_PORT: 6443
-     HTTPS_PORT: 8443
+      URL_SHORTNER_HTTPS_PORT: 6443
+      HTTPS_PORT: 8443
     ports:
-    - 4002
+      - 4002
     svcPorts:
-    - port: 80
-      targetPort: 4002
-    - port: 8080
-      targetPort: 4003
-    - port: 443
-      targetPort: 8443
-    - port: 6443
-      targetPort: 6443
+      - port: 80
+        targetPort: 4002
+      - port: 8080
+        targetPort: 4003
+      - port: 443
+        targetPort: 8443
+      - port: 6443
+        targetPort: 6443
     resources:
       enabled: 'true'
       requests:
@@ -663,13 +674,13 @@ services:
         items: []
   eventservice:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 4000
+      - port: 80
+        targetPort: 4000
     resources:
       enabled: 'true'
       requests:
@@ -712,13 +723,13 @@ services:
         items: []
   frontend:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-frontend-du:26-2-5-11
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-frontend-du:26-2-5-11
     replicas: 1
     ports:
-    - 3000
+      - 3000
     svcPorts:
-    - port: 443
-      targetPort: 3000
+      - port: 443
+        targetPort: 3000
     resources:
       enabled: 'true'
       requests:
@@ -759,30 +770,51 @@ services:
       tolerations:
         enabled: false
         items: []
-  docs:
+  pdfservice:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-fynodocs-du:prod-a3af7216
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/gotenberg:v8.29.1
     replicas: 1
     ports:
-    - 4000
+      - 3000
     svcPorts:
-    - port: 80
-      targetPort: 4000
+      - port: 80
+        targetPort: 3000
     resources:
       enabled: 'true'
       requests:
-        cpu: '1'
-        memory: 2Gi
+        cpu: '2'
+        memory: 4Gi
       limits:
-        cpu: '1'
-        memory: 2Gi
+        cpu: '2'
+        memory: 4Gi
     hpa:
-      enabled: 'false'
+      enabled: 'true'
       minReplicas: 1
-      maxReplicas: 3
-      cpuTarget: 45
-      memoryTarget: 45
+      maxReplicas: 20
+      cpuTarget: 30
+      memoryTarget: 60
+    env:
+      OTEL_METRICS_EXPORTER: none
+      OTEL_TRACES_EXPORTER: none
+      OTEL_LOGS_EXPORTER: none
+      LOG_LEVEL: warn
+    command:
+      - gotenberg
+    args:
+      - --chromium-auto-start=true
+      - --chromium-restart-after=50
+      - --chromium-max-queue-size=10
+      - --api-timeout=90s
+      - --chromium-start-timeout=30s
+      - --log-level=warn
+      - --libreoffice-disable-routes
+      - --pdfengines-disable-routes
+    tmpfs:
+      - name: pdfservice-tmp
+        mountPath: /tmp
+        sizeLimit: 4Gi
     npm_command: null
+    normal_command: null
     probe:
       enabled: false
       liveness:
@@ -810,16 +842,16 @@ services:
         items: []
   inapp:
     enabled: 'false'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-smartapiservice-du:prod-f27cca5b
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-smartapiservice-du:prod-f27cca5b
     replicas: 1
     ports:
-    - 4500
-    - 4000
+      - 4500
+      - 4000
     svcPorts:
-    - port: 443
-      targetPort: 4500
-    - port: 80
-      targetPort: 4000
+      - port: 443
+        targetPort: 4500
+      - port: 80
+        targetPort: 4000
     resources:
       enabled: 'true'
       requests:
@@ -862,13 +894,13 @@ services:
         items: []
   log:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 4000
+      - port: 80
+        targetPort: 4000
     resources:
       enabled: 'true'
       requests:
@@ -911,13 +943,13 @@ services:
         items: []
   smart:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-smartservice-du:26-2-5-17
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-smartservice-du:26-2-5-17
     replicas: 1
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 4000
+      - port: 80
+        targetPort: 4000
     resources:
       enabled: 'true'
       requests:
@@ -961,13 +993,13 @@ services:
         items: []
   transporter:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 4000
+      - port: 80
+        targetPort: 4000
     resources:
       enabled: 'true'
       requests:
@@ -1010,13 +1042,13 @@ services:
         items: []
   monitor:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-monitor-du:prod-962999c3
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     ports:
-    - 3001
+      - 3001
     svcPorts:
-    - port: 3001
-      targetPort: 3001
+      - port: 3001
+        targetPort: 3001
     resources:
       enabled: 'true'
       requests:
@@ -1059,13 +1091,13 @@ services:
         items: []
   logstream:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-backend-du:26-2-5-10
     replicas: 1
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 80
-      targetPort: 4000
+      - port: 80
+        targetPort: 4000
     resources:
       enabled: 'true'
       requests:
@@ -1107,13 +1139,13 @@ services:
         enabled: false
   license:
     enabled: 'true'
-    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-licenseservice-du:prod-1a14c139
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-licenseservice-du:prod-1a14c139
     replicas: 1
     ports:
-    - 4000
+      - 4000
     svcPorts:
-    - port: 4000
-      targetPort: 4000
+      - port: 4000
+        targetPort: 4000
     resources:
       enabled: 'true'
       requests:
@@ -1143,6 +1175,118 @@ services:
         periodSeconds: 5
         timeoutSeconds: 3
         failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  trino:
+    enabled: 'true'
+    workloadType: StatefulSet
+    persistence:
+      enabled: true
+      existingClaim: ''
+      mountPath: /mnt/trino
+      storageClassName: gp3
+      accessModes:
+        - ReadWriteOnce
+      size: 100Gi
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/trino:latest
+    replicas: 1
+    ports:
+      - 8080
+    svcPorts:
+      - name: http-trino
+        port: 80
+        targetPort: 8080
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '2'
+        memory: 4Gi
+      limits:
+        cpu: '2'
+        memory: 4Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 1
+      cpuTarget: 50
+      memoryTarget: 50
+    npm_command: null
+    normal_command: null
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 6
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 6
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  trino_worker:
+    enabled: 'true'
+    workloadType: Deployment
+    image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/trino:latest
+    replicas: 2
+    ports:
+      - 8080
+    svcPorts:
+      - name: http-trino-worker
+        port: 80
+        targetPort: 8080
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '2'
+        memory: 8Gi
+      limits:
+        cpu: '2'
+        memory: 8Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 2
+      maxReplicas: 4
+      cpuTarget: 50
+      memoryTarget: 50
+    npm_command: null
+    normal_command: null
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 6
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 6
     scheduling:
       nodeSelector:
         enabled: false

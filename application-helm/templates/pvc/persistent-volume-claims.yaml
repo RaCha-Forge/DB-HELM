@@ -1,0 +1,21 @@
+{{- $root := . -}}
+{{- range $serviceName, $serviceConfig := .Values.services }}
+{{- if and $serviceConfig.persistence (eq ($serviceConfig.persistence.enabled | toString | lower) "true") (not $serviceConfig.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $root.Release.Name }}-{{ $serviceName | replace "_" "-" }}-pvc
+  namespace: {{ $root.Release.Namespace }}
+  labels:
+    {{- include "fyno.labels" $root | nindent 4 }}
+    service: {{ $serviceName }}
+spec:
+  accessModes:
+    {{- toYaml $serviceConfig.persistence.accessModes | nindent 4 }}
+  storageClassName: {{ $serviceConfig.persistence.storageClassName | quote }}
+  resources:
+    requests:
+      storage: {{ $serviceConfig.persistence.size }}
+---
+{{- end }}
+{{- end }}
