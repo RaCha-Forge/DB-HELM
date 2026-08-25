@@ -770,6 +770,55 @@ services:
       tolerations:
         enabled: false
         items: []
+  docs:
+    enabled: 'true'
+    image:  599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/il-ecr-sancharv2-fynodocs-du:prod-a3af7216
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 45
+      memoryTarget: 45
+    npm_command: null
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: fyno
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
   pdfservice:
     enabled: 'true'
     image: 599626541385.dkr.ecr.ap-south-1.amazonaws.com/fyno/gotenberg:v8.29.1

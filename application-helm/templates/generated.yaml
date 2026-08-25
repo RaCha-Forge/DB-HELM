@@ -31,6 +31,8 @@
 ---
 {{- include "fyno.deployment" (dict "serviceName" "pdfservice" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---
+{{- include "fyno.deployment" (dict "serviceName" "docs" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
 {{- include "fyno.deployment" (dict "serviceName" "inapp" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---
 {{- include "fyno.deployment" (dict "serviceName" "log" "Values" .Values "Release" .Release "Chart" .Chart) }}
