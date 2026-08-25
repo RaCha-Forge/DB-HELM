@@ -54,7 +54,7 @@ imagePullPolicy: IfNotPresent
 
 # Storage class configuration
 storageClass:
-  name: "gp3"
+  name: "standard"
 
 # Service configuration
 services:
@@ -106,12 +106,12 @@ services:
     
     resources:
       requests:
-        storage: "30Gi"  # Smaller - cache is ephemeral
+        storage: "10Gi"  # Smaller - cache is ephemeral
         cpu: "1"
-        memory: "6Gi"
+        memory: "1Gi"
       limits:
-        cpu: "2"
-        memory: "8Gi"
+        cpu: "1"
+        memory: "2Gi"
 
   # Envoy proxy for seamless master routing.
   # Applications should connect to service.name (redis-cache by default);
@@ -126,7 +126,7 @@ services:
     servicePort: 6001        # Client-facing port exposed by Envoy
     adminPort: 9901          # Envoy admin interface port
     connectTimeout: 5s       # Upstream connection timeout
-    maxConnectAttempts: 1000000  
+    maxConnectAttempts: 1000000
     # maxEarlyDataBytes: 10485760
     idleTimeout: 0s        # Keep TCP sessions open during short failover windows
     maxDownstreamConnectionDuration: 0s
