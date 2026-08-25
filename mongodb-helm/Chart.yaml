@@ -1,5 +1,5 @@
 apiVersion: v2
-name: MariaDB
-description: Helm chart for MariaDB services
-version: 11.4.0
-appVersion: "11.4"
+name: MongoDB
+description: Helm chart for MongoDB services
+version: 8.0.5
+appVersion: "8.0.5"

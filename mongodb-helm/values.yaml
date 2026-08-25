@@ -20,7 +20,7 @@ topology:
 
 # Storage configuration
 storageClass:
-  name: gp3
+  name: standard
 
 # MongoDB data nodes configuration
 mongodb:
@@ -28,12 +28,12 @@ mongodb:
   serviceName: mongo-datanode  # Base name: will create mongo-datanode-0-0, mongo-datanode-1-0, mongo-datanode-2-0, etc.
   resources:
     requests:
-      storage: 50Gi
+      storage: 10Gi
       cpu: 1
-      memory: 4Gi
+      memory: 1Gi
     limits:
-      cpu: 2
-      memory: 6Gi
+      cpu: 1
+      memory: 2Gi
   volumeName: mongo-data
   terminationGracePeriodSeconds: 30
 
