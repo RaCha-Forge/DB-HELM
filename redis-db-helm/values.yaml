@@ -54,7 +54,7 @@ imagePullPolicy: IfNotPresent
 
 # Storage class configuration
 storageClass:
-  name: "gp3"
+  name: "standard"
 
 # Service configuration
 services:
@@ -114,7 +114,7 @@ services:
     
     resources:
       requests:
-        storage: "15Gi"  # Large persistent storage
+        storage: "10Gi"  # Large persistent storage
         cpu: "1"
         memory: "1Gi"
       limits:

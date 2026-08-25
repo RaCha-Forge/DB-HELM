@@ -28,7 +28,7 @@ data:
 {{- if not (or (eq (toString $.Values.services.Envoy.maxDownstreamConnectionDuration) "0s") (eq (toString $.Values.services.Envoy.maxDownstreamConnectionDuration) "0")) }}
                     max_downstream_connection_duration: {{ $.Values.services.Envoy.maxDownstreamConnectionDuration }}
 {{- end }}
-                    max_connect_attempts: {{ $.Values.services.Envoy.maxConnectAttempts }}
+                    max_connect_attempts: {{ $.Values.services.Envoy.maxConnectAttempts | int }}
       clusters:
         - name: redis_upstream
           connect_timeout: {{ $.Values.services.Envoy.connectTimeout }}
@@ -48,7 +48,7 @@ data:
                       address:
                         socket_address:
                           address: {{ include "redis-db.masterServiceName" $ }}.{{ $.Release.Namespace }}.svc.cluster.local
-                          port_value: {{ .Values.services.RedisCache.internalPort }}
+                          port_value: {{ .Values.services.RedisDB.internalPort }}
     admin:
       access_log_path: /tmp/admin_access.log
       address:

@@ -44,9 +44,9 @@ spec:
             - name: SERVICE_HOST
               value: "redis-db-0-0.redis-db-0.{{ .Release.Namespace }}.svc.cluster.local"
             - name: SERVICE_PORT
-              value: {{ .Values.services.RedisCache.internalPort | quote }}
+              value: {{ .Values.services.RedisDB.internalPort | quote }}
             - name: REDIS_PORT
-              value: {{ .Values.services.RedisCache.internalPort | quote }}
+              value: {{ .Values.services.RedisDB.internalPort | quote }}
             - name: CHECK_INTERVAL_SECONDS
               value: {{ .Values.services.RedisController.checkIntervalSeconds | quote }}
             - name: FAILOVER_THRESHOLD
