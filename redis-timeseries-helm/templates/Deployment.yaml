@@ -14,7 +14,7 @@ spec:
       labels:
         app: redis-ts-ha-controller
     spec:
-      serviceAccountName: {{ include "RedisTS.serviceAccountName" . }}
+      serviceAccountName: {{ include "redis-ts.serviceAccountName" . }}
       {{- if eq .Values.imagePullSecret.enabled "true" }}
       imagePullSecrets:
         - name: {{ .Values.imagePullSecret.value }}

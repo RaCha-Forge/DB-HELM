@@ -54,7 +54,7 @@ imagePullPolicy: IfNotPresent
 
 # Storage class configuration
 storageClass:
-  name: "gp3"
+  name: "standard"
 
 # Service configuration
 services:
@@ -106,12 +106,12 @@ services:
     
     resources:
       requests:
-        storage: "30Gi"  # Smaller - ts is ephemeral
+        storage: "10Gi"  # Smaller - ts is ephemeral
         cpu: "1"
-        memory: "4Gi"
+        memory: "1Gi"
       limits:
         cpu: "1"
-        memory: "5Gi"
+        memory: "2Gi"
 
   # Envoy proxy for seamless master routing.
   # Applications should connect to service.name (redis-ts by default);
