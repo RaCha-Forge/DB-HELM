@@ -1,0 +1,11 @@
+
+
+1. Make complete-setup.sh work with all redis and write conditions in such a way that it works with multiple redis if configured like ts, logstream, etc etc.
+
+2. Improve gateway, virtualservices mapping and configurations.
+
+3. Add ingress if possible.
+
+4. Add loadbalancer as svc for redis and mongo if possible with ip restrictions.
+
+5. Improve the final script and make it the best script.

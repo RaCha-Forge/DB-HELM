@@ -8,6 +8,7 @@ data:
   LOG_LEVEL: debug
   # MINIO credentials are now sourced from secret
   MINIO_ENDPOINT: {{ if .Values.domains.ssl }}https{{ else }}http{{ end }}://{{ .Values.domains.media }}
+  DOCS_URL: http://{{ .Release.Name }}-pdfservice-svc.{{ .Release.Namespace }}.svc.cluster.local:80
   NODE_ENV: prod
   QUEUE_NAME: fynodocsq
   LOG_LEVEL: "info"
