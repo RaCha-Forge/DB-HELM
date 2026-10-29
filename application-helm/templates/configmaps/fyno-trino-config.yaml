@@ -1,10 +1,11 @@
-{{- if eq (.Values.services.trino.enabled | toString | lower) "true" }}
+{{- if or (eq (.Values.services.trino.enabled | toString | lower) "true") (eq (.Values.services.trino_worker.enabled | toString | lower) "true") }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-trino-config
   namespace: {{ .Release.Namespace }}
 data:
-  TRINO_ROLE: coordinator
-  DISCOVERY_URI: http://{{ .Release.Name }}-trino-svc
+  DISCOVERY_URI: http://{{ .Release.Name }}-trino-svc.{{ .Release.Namespace }}.svc.cluster.local:80
+  MINIO_URL:  http://{{ .Values.db.MINIO_HOST }}:{{ .Values.db.MINIO_PORT }}
+
 {{- end }}

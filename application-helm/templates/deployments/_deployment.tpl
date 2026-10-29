@@ -63,7 +63,7 @@ spec:
       initContainers:
       - name: prepare-trino-filesystem
         image: {{ $serviceConfig.image }}
-        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        imagePullPolicy: {{ $serviceConfig.imagePullPolicy | default .Values.imagePullPolicy }}
         command:
         - /bin/sh
         - -c
@@ -198,7 +198,7 @@ spec:
           mountPath: /etc/ssl/tls
           readOnly: true
         {{- end}}
-        {{- if and $serviceConfig.probe.enabled $serviceConfig.ports }}
+        {{- if and $serviceConfig.probe $serviceConfig.probe.enabled $serviceConfig.ports }}
         {{- if $serviceConfig.probe.liveness.enabled }}
         livenessProbe:
           tcpSocket:
@@ -256,11 +256,11 @@ spec:
           secret:
             secretName: {{ .Values.istio.secret_name }}
         {{- end}}
-      {{- if and $serviceConfig.scheduling.nodeSelector.enabled $serviceConfig.scheduling.nodeSelector.labels }}
+      {{- if and $serviceConfig.scheduling $serviceConfig.scheduling.nodeSelector $serviceConfig.scheduling.nodeSelector.enabled $serviceConfig.scheduling.nodeSelector.labels }}
       nodeSelector:
         {{- toYaml $serviceConfig.scheduling.nodeSelector.labels | nindent 8 }}
       {{- end }}
-      {{- if $serviceConfig.scheduling.affinity.enabled }}
+      {{- if and $serviceConfig.scheduling $serviceConfig.scheduling.affinity $serviceConfig.scheduling.affinity.enabled }}
       affinity:
         {{- if $serviceConfig.scheduling.affinity.config }}
         {{- toYaml $serviceConfig.scheduling.affinity.config | nindent 8 }}
@@ -273,7 +273,7 @@ spec:
               topologyKey: kubernetes.io/hostname
         {{- end }}
       {{- end }}
-      {{- if and $serviceConfig.scheduling.tolerations.enabled $serviceConfig.scheduling.tolerations.items }}
+      {{- if and $serviceConfig.scheduling $serviceConfig.scheduling.tolerations $serviceConfig.scheduling.tolerations.enabled $serviceConfig.scheduling.tolerations.items }}
       tolerations:
         {{- toYaml $serviceConfig.scheduling.tolerations.items | nindent 8 }}
       {{- end }}

@@ -1,0 +1,14 @@
+{{- if eq (.Values.services.connect_frontend.enabled | toString | lower) "true" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-connect-frontend-config
+  namespace: {{ .Release.Namespace }}
+data:
+  APP_NAME: "frontend"
+  NEXT_PUBLIC_FYNO_CONNECT_API_URL: {{ printf "https://%s" .Values.domains.connect | quote }}
+  NEXT_PUBLIC_NODE_ENV: "prod"
+  NEXT_BACKEND_URL: {{ printf "http://%s-connect-backend-svc.%s.svc.cluster.local:4005" .Release.Name .Release.Namespace | quote }}
+  NEXTAUTH_URL: {{ printf "https://%s" .Values.domains.connect | quote }}
+  JWT_SECRET: AoEHo07d4pLcn9S3IStvmObBv19K02lVmiyxdiOuT4MOaaXRNMwZE8flv1CDSIL8
+{{- end }}

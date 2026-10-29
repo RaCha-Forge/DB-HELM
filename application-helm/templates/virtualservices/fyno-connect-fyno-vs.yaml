@@ -1,0 +1,21 @@
+{{- if and (eq .Values.istio.vs_enabled "true") (eq (.Values.services.connect_frontend.enabled | toString | lower) "true") }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: {{ .Release.Name }}-connect-vs
+  namespace: {{ .Release.Namespace }}
+spec:
+  gateways:
+  - {{ .Release.Namespace }}/fyno-gateway
+  hosts:
+  - {{ .Values.vsdomains.connect }}
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: {{ .Release.Name }}-connect-frontend-svc
+        port:
+          number: {{ (index .Values.services.connect_frontend.svcPorts 0).port | default 80 }}
+{{- end }}

@@ -1,0 +1,31 @@
+{{- if or (eq (.Values.services.connect_backend.enabled | toString | lower) "true") (eq (.Values.services.connect_content.enabled | toString | lower) "true") (eq (.Values.services.connect_upload.enabled | toString | lower) "true") (eq (.Values.services.connect_dispatcher.enabled | toString | lower) "true") }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-connect-backend-config
+  namespace: {{ .Release.Namespace }}
+data:
+  APP_NAME: "backend"
+  SERVER_HOST: "0.0.0.0"
+  SERVER_PORT: "4005"
+  NODE_ENV: "prod"
+  LOG_LEVEL: "info"
+  CONNECT_FRONTEND_URL: {{ printf "https://%s" .Values.domains.connect | quote }}
+  REDIS_HOST: {{ .Values.db.REDIS_CACHE_HOST | quote }}
+  REDIS_PORT: {{ .Values.db.REDIS_CACHE_PORT | toString | quote }}
+  REDIS_QUEUE_HOST: {{ .Values.db.REDIS_QUEUE_HOST | quote }}
+  REDIS_QUEUE_PORT: {{ .Values.db.REDIS_QUEUE_PORT | toString | quote }}
+  APP_URL: {{ printf "https://%s" .Values.domains.app_api | quote }}
+  FYNO_CLOUD_URL: {{ printf "https://%s" .Values.domains.app | quote }}
+  FYNO_WSID: "FYAP5F6360290IN"
+  ALLOW_ORIGIN: {{ printf "https://%s" .Values.domains.connect | quote }}
+  CONNECT_ALIVE_INTERVAL_MINUTES: "1"
+  CONTENT_API_LIMIT: "10"
+  INVITE_ALLOWED_DOMAINS: "gmail.com,fyno.io"
+  HEX_IV: cd683574879d03beded65dd9dbdaf553
+  HEX_KEY: 5b3ae6656a2ecdde4731c5bd35b03156b0c25952562ca37e8f7d68e9030c7f94
+  JWT_SECRET: AoEHo07d4pLcn9S3IStvmObBv19K02lVmiyxdiOuT4MOaaXRNMwZE8flv1CDSIL8
+  JWT_TOKEN_EXPIRESIN: "86400"
+  LOG_CONSOLE_ENABLE: "true"
+  ALLOWED_DATABASES: kafka
+{{- end }}

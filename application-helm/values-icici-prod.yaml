@@ -1,0 +1,1203 @@
+imagePullSecret:
+  enabled: 'false'
+  value: ecr-secret
+ 
+imagePullPolicy: IfNotPresent
+
+# serviceaccount: "test"
+
+probe:
+  enabled: 'true'
+ 
+networkPolicies:
+  enabled: false
+ 
+istio:
+  gw_enabled: 'false'
+  vs_enabled: 'false'
+  secret_name: esaforg2026-tls
+ 
+f5:
+  vs_enabled: 'false'
+  virtualServerAddress: 10.240.63.6
+ 
+proxy:
+  enabled: 'false'
+  http: http://ilawssrvprisma.icicilombard.com:8081
+  https: http://ilawssrvprisma.icicilombard.com:8081
+  cert:
+    path: proxy-ca-cert
+    name: proxycert.crt
+    enabled: 'false'
+
+
+TLS_END_TO_END:
+  enabled: 'true'
+
+
+domains:
+  ssl: true
+  api: ilsancharv2-api.icicilombard.com
+  app_api: ilsancharv2-app-api.icicilombard.com
+  app: ilsancharv2.icicilombard.com
+  callback: ilsmsv2.icicilombard.com  #internet for delivery
+  inapp: 'lsanchar.icicilombard.com' #not in use configure for testing
+  monitoring: monitoring-ilsancharv2.icicilombard.com
+  media: mediailsancharv2.icicilombard.com #internet
+  shoty: s.ilgi.co   #internet
+  unsubscribe: 'ilsancharapp.icicilombard.com' #not in use to configure for testing
+  license: licensemanager.ilsancharv2.io #not in use
+vsdomains:
+  api: ilsancharv2-api.icicilombard.com
+  app_api: ilsancharv2-app-api.icicilombard.com
+  app: ilsancharv2.icicilombard.com
+  callback: ilsmsv2.icicilombard.com
+  inapp: 'lsanchar.icicilombard.com' #not in use configure for testing
+  monitoring: monitoring-ilsancharv2.icicilombard.com
+  media: mediailsancharv2.icicilombard.com
+  shoty: s.ilgi.co
+  unsubscribe: 'ilsancharapp.icicilombard.com' #not in use to configure for testing
+  db: monitor-ilsancharv2.icicilombard.com
+  prometheus: ''
+  grafana: ''
+  license: licensemanager.ilsancharv2.io #not in use
+db:
+  REDIS_TS_HOST: il-elc-sancharv2-queue-p3.6ccjlo.ng.0001.aps1.cache.amazonaws.com
+  REDIS_TS_PORT: '6001'
+  REDIS_TS_USER: ''
+  REDIS_TS_PASSWORD: ''
+  REDIS_QUEUE_HOST: il-elc-sancharv2-queue-p3.6ccjlo.ng.0001.aps1.cache.amazonaws.com
+  REDIS_QUEUE_PORT: '6001'
+  REDIS_QUEUE_USER: ''
+  REDIS_QUEUE_PASSWORD: ''
+  REDIS_CACHE_CLUSTER: 'false'
+  REDIS_CACHE_HOST: il-elc-sancharv2-cache-p3.6ccjlo.ng.0001.aps1.cache.amazonaws.com
+  REDIS_CACHE_PORT: '6001'
+  REDIS_CACHE_USER: ''
+  REDIS_CACHE_PASSWORD: ''
+  REDIS_DB_HOST: il-elc-sancharv2-db-p3.6ccjlo.ng.0001.aps1.cache.amazonaws.com
+  REDIS_DB_PORT: '6001'
+  REDIS_DB_USER: ''
+  REDIS_DB_PASSWORD: ''
+  MARIA_DB_HOST: il-rds-ilsancharv2db-p3.cuqy32jnrtk8.ap-south-1.rds.amazonaws.com
+  MARIA_DB_PORT: '1599'
+  MARIA_DB_USER: admin
+  MARIA_DB_PASSWORD: 'Master#123'
+  MONGO_DB_HOST: 172.31.35.72
+  MONGO_DB_PORT: '29876'
+  MONGO_DB_USER: admin
+  MONGO_DB_PASSWORD: 9e9a66000641a474744dc0df54f974b1
+  MINIO_HOST: 'localhost'
+  MINIO_PORT: '1234'
+  MINIO_USER: 'admin'
+  MINIO_PASSWORD: 'admin@123'
+common_env:
+  DB_CONNECTION_LIMIT: '1'
+  CONNECTION_LIMIT: '1'
+  PROCESS_COUNT: '1'
+  PROCESS_CONCURRENCY: '200'
+services:
+  aiservice:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-smartservice-p3:26.2.5.17
+    replicas: 1
+    ports:
+    - 8000
+    svcPorts:
+    - port: 80
+      targetPort: 8000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '0.5'
+        memory: 500Mi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: null
+    normal_command: ./startai.sh
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  analytics:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-analytics-p3:prod-fd8e1808
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '0.5'
+        memory: 1Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: null
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  api_service:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    env:
+      HTTPS_PORT: 8443
+    ports:
+    - 4001
+    svcPorts:
+    - port: 80
+      targetPort: 4001
+    - port: 443
+      targetPort: 8443
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 2
+      maxReplicas: 10
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: api:live
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  apiservice:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    env:
+      HTTPS_PORT: 8443
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    - port: 443
+      targetPort: 8443
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 2
+      maxReplicas: 10
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: api_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  automationservice:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 1
+      maxReplicas: 5
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: automation_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  backend:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    env:
+      HTTPS_PORT: 8443
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    - port: 443
+      targetPort: 8443
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 2
+      maxReplicas: 10
+      cpuTarget: 50
+      memoryTarget: 50
+    npm_command: backend:live
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  c_api:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 1
+      maxReplicas: 10
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: api_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  c_event:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 1
+      maxReplicas: 10
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: event_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  c_log:
+    enabled: 'false'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 1Gi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: log_service:live
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  c_transporter:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 1
+      maxReplicas: 10
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: transporter_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  callback:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    ports:
+    - 4002
+    svcPorts:
+    - port: 80
+      targetPort: 4002
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 2
+      maxReplicas: 10
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: callback_services:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  dlr:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    env:
+     URL_SHORTNER_HTTPS_PORT: 6443
+     HTTPS_PORT: 8443
+    ports:
+    - 4002
+    svcPorts:
+    - port: 80
+      targetPort: 4002
+    - port: 8080
+      targetPort: 4003
+    - port: 443
+      targetPort: 8443
+    - port: 6443
+      targetPort: 6443
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 2
+      maxReplicas: 10
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: dlr_service:live
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  eventservice:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 2
+      maxReplicas: 10
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: event_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  frontend:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-frontend-p3:prod-da234582
+    replicas: 1
+    ports:
+    - 3000
+    svcPorts:
+    - port: 443
+      targetPort: 3000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '0.3'
+        memory: 400Mi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 2
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: null
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  docs:
+    enabled: 'false'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-fynodocs-p3:prod-a3af7216
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 1Gi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: null
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  inapp:
+    enabled: 'false'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-smartapiservice-p3:prod-f27cca5b
+    replicas: 1
+    ports:
+    - 4500
+    - 4000
+    svcPorts:
+    - port: 443
+      targetPort: 4500
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 1Gi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: inapp:live
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  log:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 2
+      maxReplicas: 10
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: log_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  smart:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-smartservice-p3:26.2.5.17
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 1Gi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: null
+    normal_command: "python3 listener.py"
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  transporter:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'true'
+      minReplicas: 2
+      maxReplicas: 10
+      cpuTarget: 25
+      memoryTarget: 25
+    npm_command: transporter_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  monitor:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-monitor-p3:prod-3d89e4f9
+    replicas: 1
+    ports:
+    - 3001
+    svcPorts:
+    - port: 3001
+      targetPort: 3001
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '0.5'
+        memory: 300Mi
+      limits:
+        cpu: '0.5'
+        memory: 500Mi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 60
+      memoryTarget: 75
+    npm_command: null
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []
+  logstream:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-backend-p3:latest-10
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 80
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '1'
+        memory: 2Gi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 40
+      memoryTarget: 40
+    npm_command: logstream_service:live
+    probe:
+      enabled: false
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+ 
+  license:
+    enabled: 'true'
+    image: 592015014223.dkr.ecr.ap-south-1.amazonaws.com/il-ecr-sancharv2-licenseservice-p3:prod-3923dfe4
+    replicas: 1
+    ports:
+    - 4000
+    svcPorts:
+    - port: 4000
+      targetPort: 4000
+    resources:
+      enabled: 'true'
+      requests:
+        cpu: '0.5'
+        memory: 100Mi
+      limits:
+        cpu: '0.5'
+        memory: 100Mi
+    hpa:
+      enabled: 'false'
+      minReplicas: 1
+      maxReplicas: 3
+      cpuTarget: 40
+      memoryTarget: 40
+    npm_command: null
+    probe:
+      enabled: true
+      liveness:
+        enabled: true
+        initialDelaySeconds: 20
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 3
+        failureThreshold: 2
+    scheduling:
+      nodeSelector:
+        enabled: false
+        labels:
+          app: ilsancharv2
+      affinity:
+        enabled: false
+        config: null
+      tolerations:
+        enabled: false
+        items: []

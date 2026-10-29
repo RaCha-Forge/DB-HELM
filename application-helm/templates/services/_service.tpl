@@ -23,10 +23,12 @@ spec:
   {{- end }}
   {{- else if $serviceConfig.ports }}
   ports:
-  - name: http
-    port: 80
-    targetPort: {{ (index $serviceConfig.ports 0) }}
+  {{- range $i, $p := $serviceConfig.ports }}
+  - name: http{{ if gt (len $serviceConfig.ports) 1 }}-{{ $i }}{{ end }}
+    port: {{ if $serviceConfig.svcPorts }}{{ (index $serviceConfig.svcPorts $i).port }}{{ else }}80{{ end }}
+    targetPort: {{ $p }}
     protocol: TCP
+  {{- end }}
   {{- end }}
   selector:
     app: {{ .Release.Name }}-{{ $serviceNameNormalized }}-service

@@ -50,6 +50,16 @@
 {{- include "fyno.deployment" (dict "serviceName" "trino" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---
 {{- include "fyno.deployment" (dict "serviceName" "trino_worker" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.deployment" (dict "serviceName" "connect_backend" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.deployment" (dict "serviceName" "connect_frontend" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.deployment" (dict "serviceName" "connect_content" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.deployment" (dict "serviceName" "connect_upload" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.deployment" (dict "serviceName" "connect_dispatcher" "Values" .Values "Release" .Release "Chart" .Chart) }}
 
 {{/* Services */}}
 ---
@@ -76,6 +86,10 @@
 {{- include "fyno.service" (dict "serviceName" "trino_worker" "Values" .Values "Release" .Release "Chart" .Chart) }}
 ---
 {{- include "fyno.service" (dict "serviceName" "pdfservice" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.service" (dict "serviceName" "connect_backend" "Values" .Values "Release" .Release "Chart" .Chart) }}
+---
+{{- include "fyno.service" (dict "serviceName" "connect_frontend" "Values" .Values "Release" .Release "Chart" .Chart) }}
 
 {{/* HPAs */}}
 ---

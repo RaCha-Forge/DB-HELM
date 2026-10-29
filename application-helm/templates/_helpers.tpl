@@ -75,6 +75,14 @@ imagePullSecrets:
 {{- printf "%s-monitor-config" .Release.Name }}
 {{- else if eq $serviceName "frontend" }}
 {{- printf "%s-frontend-service-config" .Release.Name }}
+{{- else if or (eq $serviceName "trino") (eq $serviceName "trino_worker") }}
+{{- printf "%s-trino-config" .Release.Name }}
+{{- else if eq $serviceName "connect_backend" }}
+{{- printf "%s-connect-backend-config" .Release.Name }}
+{{- else if eq $serviceName "connect_frontend" }}
+{{- printf "%s-connect-frontend-config" .Release.Name }}
+{{- else if or (eq $serviceName "connect_content") (eq $serviceName "connect_upload") (eq $serviceName "connect_dispatcher") }}
+{{- printf "%s-connect-backend-config" .Release.Name }}
 {{- else if eq $serviceName "docs" }}
 {{- printf "%s-fynodocs-service-config" .Release.Name }}
 {{- else if eq $serviceName "inapp" }}
@@ -102,6 +110,14 @@ imagePullSecrets:
 {{- printf "%s-backend-secret" .Release.Name }}
 {{- else if eq $serviceName "frontend" }}
 {{- printf "%s-frontend-service-secret" .Release.Name }}
+{{- else if or (eq $serviceName "trino") (eq $serviceName "trino_worker") }}
+{{- printf "%s-trino-secret" .Release.Name }}
+{{- else if eq $serviceName "connect_backend" }}
+{{- printf "%s-connect-backend-secret" .Release.Name }}
+{{- else if eq $serviceName "connect_frontend" }}
+{{- printf "%s-connect-frontend-secret" .Release.Name }}
+{{- else if or (eq $serviceName "connect_content") (eq $serviceName "connect_upload") (eq $serviceName "connect_dispatcher") }}
+{{- printf "%s-connect-backend-secret" .Release.Name }}
 {{- else if eq $serviceName "docs" }}
 {{- printf "%s-fynodocs-service-secret" .Release.Name }}
 {{- else if eq $serviceName "inapp" }}
@@ -111,4 +127,14 @@ imagePullSecrets:
 {{- else }}
 {{- printf "%s-%s-secret" .Release.Name $normalized }}
 {{- end }}
+{{- end }}
+
+{{- define "fyno.mongoSeedHosts" -}}
+{{- $hosts := splitList "," (.host | toString) -}}
+{{- $port := .port | toString -}}
+{{- range $index, $host := $hosts -}}
+{{- if $index }},{{ end -}}
+{{- $trimmedHost := trim $host -}}
+{{- if contains ":" $trimmedHost }}{{ $trimmedHost }}{{ else }}{{ printf "%s:%s" $trimmedHost $port }}{{ end -}}
+{{- end -}}
 {{- end }}

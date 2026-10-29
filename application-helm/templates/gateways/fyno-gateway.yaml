@@ -22,6 +22,7 @@ spec:
     - {{ .Values.vsdomains.db }}
     - {{ .Values.vsdomains.prometheus }}
     - {{ .Values.vsdomains.grafana }}
+    - {{ .Values.vsdomains.connect }}
     port:
       name: http
       number: 80
@@ -38,6 +39,7 @@ spec:
     - {{ .Values.vsdomains.db }}
     - {{ .Values.vsdomains.prometheus }}
     - {{ .Values.vsdomains.grafana }}
+    - {{ .Values.vsdomains.connect }}
     port:
       name: https
       number: 443
