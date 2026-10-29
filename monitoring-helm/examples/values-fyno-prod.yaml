@@ -1,0 +1,55 @@
+# Example values for the Fyno prod VKS cluster (namespace fyno-vks-prod).
+# Every CHANGE_ME must be replaced. Keep the real copy out of git, or move the
+# credentials into a separate untracked file and pass it with a second -f.
+global:
+  imagePullSecrets: [chainguard-registry]
+
+grafana:
+  admin:
+    user: admin
+    password: CHANGE_ME
+
+integrations:
+  kafka:
+    enabled: true
+    host: 10.240.57.204
+    port: 9092
+    user: ""            # PLAINTEXT today; set user/password to switch SASL on
+    password: ""
+
+  mariadb:
+    enabled: true
+    host: mariadb.fyno-vks-prod.svc.cluster.local
+    port: 3306
+    user: CHANGE_ME
+    password: CHANGE_ME
+
+  mongodb:
+    enabled: true
+    hosts:
+      - mongo-datanode-0-0.mongo-datanode.fyno-vks-prod.svc.cluster.local:28128
+      - mongo-datanode-1-0.mongo-datanode.fyno-vks-prod.svc.cluster.local:28128
+    user: CHANGE_ME
+    password: CHANGE_ME
+
+  minio:
+    enabled: true
+    bearerToken: ""     # default for all sites; leave empty if each site has its own token below
+    sites:              # one token per MinIO cluster: mc admin prometheus generate <alias> --api-version v3
+      - name: minio-a
+        targets: ["minio-a-headless:9000"]
+        bearerToken: CHANGE_ME
+      - name: minio-b
+        targets: ["minio-b-headless:9000"]
+        bearerToken: CHANGE_ME
+
+  redis:
+    enabled: true
+    host: CHANGE_ME
+    port: 6379
+    password: ""
+
+  kubernetes:
+    enabled: true        # pods / workloads / services dashboard (kube-state-metrics + cAdvisor)
+    cadvisor:
+      mode: kubelet      # switch to apiserver-proxy if pods cannot reach node port 10250

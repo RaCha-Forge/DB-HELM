@@ -1,0 +1,77 @@
+{{- if .Values.loki.enabled }}
+{{- $l := .Values.loki }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: loki
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "loki" "component" "logs") | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: loki
+  podManagementPolicy: OrderedReady
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      {{- include "monitoring.selector" "loki" | nindent 6 }}
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "monitoring.labels" (dict "root" . "name" "loki" "component" "logs") | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/loki/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "monitoring.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml $l.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: loki
+          image: {{ include "monitoring.image" (dict "root" . "image" $l.image) }}
+          imagePullPolicy: {{ $l.image.pullPolicy }}
+          args:
+            - -config.file=/etc/loki/loki.yaml
+          ports:
+            - name: http
+              containerPort: 3100
+              protocol: TCP
+          readinessProbe:
+            httpGet: { path: /ready, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /ready, port: http }
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            {{- toYaml $l.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml $l.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/loki
+            - name: storage
+              mountPath: /loki
+      volumes:
+        - name: config
+          configMap:
+            name: loki-config
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: storage
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.global.storageClassName }}
+        volumeMode: Filesystem
+        resources:
+          requests:
+            storage: {{ $l.persistence.size }}
+{{- end }}

@@ -1,0 +1,219 @@
+# =============================================================================
+#  monitoring - Fyno observability stack
+# -----------------------------------------------------------------------------
+#  Every component and every integration is a real boolean (true / false).
+#  Flip a switch and `helm upgrade` does the rest:
+#
+#      enabled: true   ->  exporter/workload + Prometheus scrape job
+#                          + Grafana datasource + Grafana dashboard
+#      enabled: false  ->  none of the above is rendered
+#
+#  Credentials are optional everywhere. Leave user / password empty ("") and the
+#  chart simply omits the auth settings - no empty-password surprises.
+#
+#  Secrets: for anything you would not commit, keep a private values file and
+#  pass it last:   helm upgrade -i monitoring . -f values.yaml -f secrets.yaml
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+#  Global
+# -----------------------------------------------------------------------------
+global:
+  imageRegistry: ecpxdcnprhrbr.esafhub.com   # prefixed to every image repository below
+  imagePullSecrets: []                       # e.g. [chainguard-registry]
+  storageClassName: prodvks-storage-policy   # PVCs of Grafana, Prometheus and Loki
+  commonLabels: {}                           # added to every object
+
+# -----------------------------------------------------------------------------
+#  Core components
+# -----------------------------------------------------------------------------
+grafana:
+  enabled: true
+  image: { repository: fyno/fyno/grafana, tag: 12-redis, pullPolicy: IfNotPresent }  # 12-redis bundles the Redis datasource plugin
+  admin:
+    user: admin
+    password: ""            # REQUIRED unless existingSecret is set
+    existingSecret: ""      # Secret with keys admin-user and admin-password
+  service:
+    type: NodePort          # ClusterIP | NodePort | LoadBalancer
+    port: 3000
+    nodePort: ""            # leave empty to let Kubernetes pick
+  persistence:
+    size: 10Gi
+  replaceExistingDatasources: true   # delete same-named UI-created datasources so provisioning can own them
+  extraEnv: []                       # [{name: GF_SERVER_ROOT_URL, value: "https://grafana.example.com"}]
+  resources: {}
+  podSecurityContext: { fsGroup: 472, fsGroupChangePolicy: OnRootMismatch }
+  containerSecurityContext: { runAsUser: 472, runAsGroup: 472, allowPrivilegeEscalation: false }
+
+prometheus:
+  enabled: true
+  image: { repository: fyno/fyno/prometheus, tag: "3.5", pullPolicy: IfNotPresent }
+  retention: 15d
+  scrapeInterval: 15s
+  persistence:
+    size: 20Gi
+  resources: {}
+  podSecurityContext: { fsGroup: 0, fsGroupChangePolicy: OnRootMismatch }   # matches the running cluster
+  containerSecurityContext: { runAsUser: 0, runAsGroup: 0 }                 # matches the running cluster
+
+loki:
+  enabled: true
+  dashboard: true            # provisions the "Fyno Logs" dashboard
+  image: { repository: fyno/loki, tag: 2.9.0, pullPolicy: IfNotPresent }
+  retention: 120h            # 5 days; also used as promtail drop window and reject_old_samples age
+  persistence:
+    size: 40Gi
+  limits:
+    ingestionRateMb: 64
+    ingestionBurstSizeMb: 128
+    perStreamRateLimit: 5MB
+    perStreamRateLimitBurst: 15MB
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits: { memory: 1536Mi }
+  podSecurityContext: { fsGroup: 10001 }
+  containerSecurityContext: { runAsUser: 10001, runAsGroup: 10001 }
+
+promtail:
+  enabled: true
+  image: { repository: fyno/promtail, tag: 2.9.0, pullPolicy: IfNotPresent }
+  namespaces: []                              # empty = release namespace only
+  excludePods: "promtail-.*|trendmicro-.*"    # regex of pod names never shipped
+  hostNetwork: true
+  positionsHostPath: /run/promtail            # bump the file name in the ConfigMap if you ever need a full re-read
+  tolerations:
+    - operator: Exists                        # run on control-plane / tainted nodes too
+  resources:
+    limits: { cpu: 100m, memory: 256Mi }
+
+# -----------------------------------------------------------------------------
+#  Integrations  (one block per data source, all OFF by default)
+# -----------------------------------------------------------------------------
+integrations:
+
+  # ---- Kafka ---------------------------------------------------------------
+  kafka:
+    enabled: false
+    dashboard: true
+    image: { repository: fyno/kafka-exporter, tag: v1.9.0, pullPolicy: IfNotPresent }
+    host: ""                       # broker host / IP            (required when enabled)
+    port: 9092
+    extraBrokers: []               # additional "host:port" entries
+    version: 3.6.0                 # Kafka protocol version
+    user: ""                       # leave empty for PLAINTEXT brokers
+    password: ""
+    saslMechanism: plain           # plain | scram-sha256 | scram-sha512  (used only when user is set)
+    tls:
+      enabled: false
+      insecureSkipVerify: false
+    groupFilter: "fyno-consumer-group-.*"
+    topicFilter: ""
+    refreshMetadata: 30s
+    scrapeInterval: 30s
+    replicas: 1
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits: { memory: 256Mi }
+    podSecurityContext: { runAsNonRoot: true, runAsUser: 65534 }
+
+  # ---- MariaDB -------------------------------------------------------------
+  mariadb:
+    enabled: false
+    dashboard: true
+    image: { repository: fyno/fyno/grafana, tag: mysqld-exporter, pullPolicy: Always }
+    host: ""                       # (required when enabled)
+    port: 3306
+    user: ""                       # leave empty if the exporter account has no name/password
+    password: ""
+    scrapeInterval: 15s
+    replicas: 1
+    resources:
+      requests: { cpu: 20m, memory: 32Mi }
+      limits: { cpu: 100m, memory: 128Mi }
+    podSecurityContext: {}
+
+  # ---- MongoDB -------------------------------------------------------------
+  mongodb:
+    enabled: false
+    dashboard: true
+    image: { repository: fyno/fyno/grafana, tag: mongodb-exporter, pullPolicy: Always }
+    hosts: []                      # ["mongo-0.mongo.ns.svc:28128", "mongo-1.mongo.ns.svc:28128"]  (required when enabled)
+    user: ""                       # leave empty for unauthenticated deployments
+    password: ""
+    authDatabase: admin
+    tls: false
+    directConnect: false
+    collectAll: true
+    scrapeInterval: 15s
+    replicas: 1
+    resources:
+      requests: { cpu: 20m, memory: 64Mi }
+      limits: { memory: 256Mi }
+    podSecurityContext: {}
+
+  # ---- MinIO ---------------------------------------------------------------
+  # MinIO exposes its own metrics, so there is no exporter to run: this block
+  # only adds Prometheus scrape jobs plus the dashboard. Prometheus must be able
+  # to reach each target. Set bearerToken only when MinIO does not run with
+  # MINIO_PROMETHEUS_AUTH_TYPE=public  (token from: mc admin prometheus generate <alias> --api-version v3).
+  minio:
+    enabled: false
+    dashboard: true
+    metricsPath: /minio/metrics/v3
+    scheme: http
+    bearerToken: ""                # default token for every site; a site-level bearerToken overrides it
+    scrapeInterval: 15s
+    sites:                         # each site becomes job "<name>" with label site="<name>"
+      - name: minio-a
+        targets: ["minio-a-headless:9000"]
+        bearerToken: ""            # optional: this site's own token (MinIO issues one per cluster)
+      - name: minio-b
+        targets: ["minio-b-headless:9000"]
+        bearerToken: ""
+
+  # ---- Kubernetes (pods / workloads / services) ------------------------------
+  # Per-pod and per-workload CPU, memory, network, restarts, replica counts, HPA
+  # and Service-endpoint health. Deploys kube-state-metrics, scrapes each node's
+  # kubelet (cAdvisor), adds the recording rules and the "Fyno Workloads - Service
+  # Level" dashboard. Needs prometheus.enabled=true.
+  #
+  # Permissions created (read-only, least privilege):
+  #   ClusterRole  prometheus-kubelet-metrics : nodes (list, watch) + nodes/metrics (get)
+  #   ClusterRole  kube-state-metrics-nodes   : nodes (list, watch)
+  #   Role         kube-state-metrics         : pods, services, endpoints, deployments,
+  #                                             statefulsets, daemonsets, HPAs (list, watch)
+  #                                             in every namespace listed below
+  kubernetes:
+    enabled: false
+    dashboard: true
+    namespaces: []                 # namespaces to monitor; empty = release namespace only
+    cadvisor:
+      mode: kubelet                # kubelet          : Prometheus -> node:10250 (needs nodes/metrics)
+                                   # apiserver-proxy  : Prometheus -> API server -> kubelet (needs nodes/proxy);
+                                   #                    use if pods cannot reach node port 10250
+      insecureSkipVerify: true     # kubelet serving certificates are usually self-signed (kubelet mode only)
+      scrapeInterval: 30s          # keep <= 30s: the recording rules use 2m rate windows
+    kubeStateMetrics:
+      image: { repository: fyno/kube-state-metrics, tag: v2.13.0, pullPolicy: IfNotPresent }
+      scrapeInterval: 30s          # 15s gives faster replica / health updates
+      replicas: 1
+      resources:
+        requests: { cpu: 50m, memory: 128Mi }
+        limits: { memory: 256Mi }
+
+  # ---- Redis ---------------------------------------------------------------
+  # Redis is read directly by the Grafana Redis datasource plugin (no exporter).
+  redis:
+    enabled: false
+    dashboard: true
+    host: ""                       # (required when enabled)
+    port: 6379
+    user: ""                       # ACL user, optional
+    password: ""
+    client: standalone             # standalone | cluster | sentinel
+    sentinelName: ""               # only for client: sentinel
+    tls: false
+    tlsSkipVerify: false
+    poolSize: 5
+    timeoutSeconds: 10

@@ -1,0 +1,236 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "${ds}"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 38,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableInfiniteScrolling": false,
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showControls": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${ds}"
+          },
+          "expr": "{namespace=\"fyno-vks-prod\", workload_kind=~\"$kind\", workload=~\"$workload\", container=~\"$container\", pod=~\"$pod\"} |~ `$grep`",
+          "maxLines": 5000,
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Logs",
+      "type": "logs"
+    }
+  ],
+  "preload": false,
+  "refresh": "10s",
+  "schemaVersion": 42,
+  "tags": [
+    "fyno",
+    "loki",
+    "logs"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "loki",
+          "value": "loki"
+        },
+        "includeAll": false,
+        "label": "Loki",
+        "name": "ds",
+        "options": [],
+        "query": "loki",
+        "refresh": 1,
+        "type": "datasource"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "${ds}"
+        },
+        "definition": "label_values({namespace=\"fyno-vks-prod\"},workload_kind)",
+        "includeAll": true,
+        "label": "kind",
+        "multi": true,
+        "name": "kind",
+        "options": [],
+        "query": {
+          "label": "workload_kind",
+          "stream": "{namespace=\"fyno-vks-prod\"}",
+          "type": 1
+        },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "${ds}"
+        },
+        "definition": "label_values({namespace=\"fyno-vks-prod\", workload_kind=~\"$kind\"},workload)",
+        "includeAll": true,
+        "label": "workload (deployment / sts)",
+        "multi": true,
+        "name": "workload",
+        "options": [],
+        "query": {
+          "label": "workload",
+          "stream": "{namespace=\"fyno-vks-prod\", workload_kind=~\"$kind\"}",
+          "type": 1
+        },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "${ds}"
+        },
+        "definition": "label_values({namespace=\"fyno-vks-prod\", workload_kind=~\"$kind\", workload=~\"$workload\"},container)",
+        "includeAll": true,
+        "label": "container",
+        "multi": true,
+        "name": "container",
+        "options": [],
+        "query": {
+          "label": "container",
+          "stream": "{namespace=\"fyno-vks-prod\", workload_kind=~\"$kind\", workload=~\"$workload\"}",
+          "type": 1
+        },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "${ds}"
+        },
+        "definition": "label_values({namespace=\"fyno-vks-prod\", workload_kind=~\"$kind\", workload=~\"$workload\", container=~\"$container\"},pod)",
+        "includeAll": true,
+        "label": "pod",
+        "multi": true,
+        "name": "pod",
+        "options": [],
+        "query": {
+          "label": "pod",
+          "stream": "{namespace=\"fyno-vks-prod\", workload_kind=~\"$kind\", workload=~\"$workload\", container=~\"$container\"}",
+          "type": 1
+        },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allowCustomValue": true,
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        },
+        "includeAll": false,
+        "label": "grep (regex)",
+        "name": "grep",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": ".*"
+          },
+          {
+            "selected": false,
+            "text": "Errors",
+            "value": "error|ERROR"
+          },
+          {
+            "selected": false,
+            "text": "Warnings",
+            "value": "warn|WARN"
+          },
+          {
+            "selected": false,
+            "text": "Errors + Warnings",
+            "value": "error|ERROR|warn|WARN"
+          }
+        ],
+        "query": "All : .*,Errors : error|ERROR,Warnings : warn|WARN,Errors + Warnings : error|ERROR|warn|WARN",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Fyno Logs",
+  "uid": "fyno-logs"
+}

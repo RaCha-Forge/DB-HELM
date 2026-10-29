@@ -1,0 +1,143 @@
+{{- if .Values.integrations.kubernetes.enabled }}
+{{- $k := .Values.integrations.kubernetes }}
+{{- $m := $k.kubeStateMetrics }}
+{{- $ns := default (list .Release.Namespace) $k.namespaces }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-state-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "kube-state-metrics" "component" "exporter") | nindent 4 }}
+{{- /* Namespaced read access, one Role per monitored namespace (list / watch only). */}}
+{{- range $ns }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kube-state-metrics
+  namespace: {{ . }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" $ "name" "kube-state-metrics" "component" "exporter") | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kube-state-metrics
+  namespace: {{ . }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" $ "name" "kube-state-metrics" "component" "exporter") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kube-state-metrics
+subjects:
+  - kind: ServiceAccount
+    name: kube-state-metrics
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
+---
+{{- /* The only cluster-scoped resource it needs: nodes. */}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-state-metrics-nodes
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "kube-state-metrics" "component" "exporter") | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-state-metrics-nodes
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "kube-state-metrics" "component" "exporter") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-state-metrics-nodes
+subjects:
+  - kind: ServiceAccount
+    name: kube-state-metrics
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-state-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "kube-state-metrics" "component" "exporter") | nindent 4 }}
+spec:
+  replicas: {{ $m.replicas }}
+  selector:
+    matchLabels:
+      {{- include "monitoring.selector" "kube-state-metrics" | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "monitoring.labels" (dict "root" . "name" "kube-state-metrics" "component" "exporter") | nindent 8 }}
+    spec:
+      serviceAccountName: kube-state-metrics
+      {{- include "monitoring.pullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: kube-state-metrics
+          image: {{ include "monitoring.image" (dict "root" . "image" $m.image) }}
+          imagePullPolicy: {{ $m.image.pullPolicy }}
+          args:
+            - --port=8080
+            - --telemetry-port=8081
+            - --namespaces={{ join "," $ns }}
+            - --resources=pods,nodes,deployments,statefulsets,daemonsets,horizontalpodautoscalers,services,endpoints
+          ports:
+            - name: http-metrics
+              containerPort: 8080
+            - name: telemetry
+              containerPort: 8081
+          livenessProbe:
+            httpGet: { path: /livez, port: http-metrics }
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet: { path: /readyz, port: telemetry }
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml $m.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "kube-state-metrics" "component" "exporter") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "monitoring.selector" "kube-state-metrics" | nindent 4 }}
+  ports:
+    - name: http-metrics
+      port: 8080
+      targetPort: http-metrics
+{{- end }}

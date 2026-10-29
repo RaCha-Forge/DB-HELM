@@ -1,0 +1,18 @@
+{{- if .Values.loki.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "loki" "component" "logs") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "monitoring.selector" "loki" | nindent 4 }}
+  ports:
+    - name: http
+      port: 3100
+      targetPort: http
+      protocol: TCP
+{{- end }}

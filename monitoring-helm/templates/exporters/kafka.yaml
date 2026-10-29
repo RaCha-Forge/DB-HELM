@@ -1,0 +1,111 @@
+{{- if .Values.integrations.kafka.enabled }}
+{{- $k := .Values.integrations.kafka }}
+{{- $sasl := ne (toString $k.user) "" }}
+{{- if $sasl }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kafka-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "kafka-exporter" "component" "exporter") | nindent 4 }}
+type: Opaque
+stringData:
+  username: {{ $k.user | quote }}
+  password: {{ $k.password | quote }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "kafka-exporter" "component" "exporter") | nindent 4 }}
+spec:
+  replicas: {{ $k.replicas }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      {{- include "monitoring.selector" "kafka-exporter" | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 25%, maxUnavailable: 25% }
+  template:
+    metadata:
+      labels:
+        {{- include "monitoring.labels" (dict "root" . "name" "kafka-exporter" "component" "exporter") | nindent 8 }}
+      {{- if $sasl }}
+      annotations:
+        checksum/secret: {{ printf "%s:%s" $k.user $k.password | sha256sum }}
+      {{- end }}
+    spec:
+      {{- include "monitoring.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml $k.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: kafka-exporter
+          image: {{ include "monitoring.image" (dict "root" . "image" $k.image) }}
+          imagePullPolicy: {{ $k.image.pullPolicy }}
+          args:
+            - --kafka.server={{ $k.host }}:{{ $k.port }}
+            {{- range $k.extraBrokers }}
+            - --kafka.server={{ . }}
+            {{- end }}
+            - --kafka.version={{ $k.version }}
+            - --refresh.metadata={{ $k.refreshMetadata }}
+            {{- if $k.groupFilter }}
+            - --group.filter={{ $k.groupFilter }}
+            {{- end }}
+            {{- if $k.topicFilter }}
+            - --topic.filter={{ $k.topicFilter }}
+            {{- end }}
+            {{- if $sasl }}
+            - --sasl.enabled
+            - --sasl.mechanism={{ $k.saslMechanism }}
+            - --sasl.username=$(KAFKA_USERNAME)
+            - --sasl.password=$(KAFKA_PASSWORD)
+            {{- end }}
+            {{- if $k.tls.enabled }}
+            - --tls.enabled
+            {{- if $k.tls.insecureSkipVerify }}
+            - --tls.insecure-skip-tls-verify
+            {{- end }}
+            {{- end }}
+          {{- if $sasl }}
+          env:
+            - name: KAFKA_USERNAME
+              valueFrom: { secretKeyRef: { name: kafka-exporter, key: username } }
+            - name: KAFKA_PASSWORD
+              valueFrom: { secretKeyRef: { name: kafka-exporter, key: password } }
+          {{- end }}
+          ports:
+            - name: metrics
+              containerPort: 9308
+              protocol: TCP
+          readinessProbe:
+            httpGet: { path: /healthz, port: metrics }
+            periodSeconds: 15
+          resources:
+            {{- toYaml $k.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "kafka-exporter" "component" "exporter") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "monitoring.selector" "kafka-exporter" | nindent 4 }}
+  ports:
+    - name: metrics
+      port: 9308
+      targetPort: metrics
+{{- end }}

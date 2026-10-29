@@ -1,0 +1,2559 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(mongodb_up{job=~\"$job\",instance=~\"$instance\"})",
+          "refId": "A"
+        }
+      ],
+      "title": "MongoDB Up Targets",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(mongodb_rs_members_health{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\",member_state=\"PRIMARY\"})",
+          "refId": "A"
+        }
+      ],
+      "title": "Primary Healthy",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(mongodb_rs_members_health{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\",member_state=\"SECONDARY\"})",
+          "refId": "A"
+        }
+      ],
+      "title": "Secondaries Healthy",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(mongodb_ss_connections{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\",conn_type=\"current\"})",
+          "refId": "A"
+        }
+      ],
+      "title": "Current Connections",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(mongodb_ss_globalLock_currentQueue{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\",count_type=~\"readers|writers\"})",
+          "refId": "A"
+        }
+      ],
+      "title": "Queued Readers+Writers",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "(max by (rs_nm) (mongodb_rs_members_optimeDate{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}) - min by (rs_nm) (mongodb_rs_members_optimeDate{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})) / 1000",
+          "refId": "A"
+        }
+      ],
+      "title": "Replication Lag (s)",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 4
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum by (conn_type) (mongodb_ss_connections{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "{{conn_type}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Connections by Type",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 4
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum by (legacy_op_type) (rate(mongodb_ss_opcounters{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "{{legacy_op_type}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Operations/sec by Legacy Op Type",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 4
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum by (legacy_op_type) (rate(mongodb_ss_opcountersRepl{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "{{legacy_op_type}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Replication Operations/sec",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 12
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(rate(mongodb_ss_network_bytesIn{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "bytesIn",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(mongodb_ss_network_bytesOut{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "bytesOut",
+          "refId": "B"
+        }
+      ],
+      "title": "Network Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 12
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(rate(mongodb_ss_network_numRequests{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "requests/sec",
+          "refId": "A"
+        }
+      ],
+      "title": "Requests/sec",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decmbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 12
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(mongodb_ss_mem_resident{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "resident",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(mongodb_ss_mem_virtual{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "virtual",
+          "refId": "B"
+        }
+      ],
+      "title": "Memory (Resident vs Virtual)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 20
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(mongodb_ss_wt_cache_bytes_currently_in_the_cache{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "cache_used",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(mongodb_ss_wt_cache_maximum_bytes_configured{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "cache_max",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(mongodb_ss_wt_cache_tracked_dirty_bytes_in_the_cache{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "cache_dirty",
+          "refId": "C"
+        }
+      ],
+      "title": "WiredTiger Cache Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 20
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(rate(mongodb_ss_wt_cache_bytes_read_into_cache{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "read_into_cache",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(mongodb_ss_wt_cache_bytes_written_from_cache{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "written_from_cache",
+          "refId": "B"
+        }
+      ],
+      "title": "WiredTiger Cache IO Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*tcmalloc.*"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 20
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(rate(mongodb_ss_extra_info_page_faults{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "page_faults/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(mongodb_ss_tcmalloc_tcmalloc_pageheap_free_bytes{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "tcmalloc_free",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(mongodb_ss_tcmalloc_tcmalloc_pageheap_unmapped_bytes{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "tcmalloc_unmapped",
+          "refId": "C"
+        }
+      ],
+      "title": "Page Faults and TCMalloc Free/Unmapped",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 28
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "mongodb_rs_members_health{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}",
+          "legendFormat": "{{member_idx}} ({{member_state}})",
+          "refId": "A"
+        }
+      ],
+      "title": "Replica Set Member Health",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 28
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(max by (rs_nm) (mongodb_rs_members_optimeDate{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}) - min by (rs_nm) (mongodb_rs_members_optimeDate{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})) / 1000",
+          "legendFormat": "{{rs_nm}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Replication Lag by Replica Set (s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 28
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "mongodb_rs_members_state{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}",
+          "legendFormat": "{{member_idx}} ({{member_state}})",
+          "refId": "A"
+        }
+      ],
+      "title": "Member State Codes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 36
+      },
+      "id": 19,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (database) (mongodb_dbstats_dataSize{job=~\"$job\",instance=~\"$instance\",database=~\"$database\"})",
+          "legendFormat": "{{database}} data",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (database) (mongodb_dbstats_storageSize{job=~\"$job\",instance=~\"$instance\",database=~\"$database\"})",
+          "legendFormat": "{{database}} storage",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (database) (mongodb_dbstats_indexSize{job=~\"$job\",instance=~\"$instance\",database=~\"$database\"})",
+          "legendFormat": "{{database}} index",
+          "refId": "C"
+        }
+      ],
+      "title": "Database Data/Storage/Index Size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 36
+      },
+      "id": 20,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (database) (mongodb_dbstats_objects{job=~\"$job\",instance=~\"$instance\",database=~\"$database\"})",
+          "legendFormat": "{{database}} objects",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (database) (mongodb_dbstats_collections{job=~\"$job\",instance=~\"$instance\",database=~\"$database\"})",
+          "legendFormat": "{{database}} collections",
+          "refId": "B"
+        }
+      ],
+      "title": "Database Objects/Collections",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 36
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (csr_type) (mongodb_ss_metrics_cursor_open{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "{{csr_type}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Cursor Open Types",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 44
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(mongodb_ss_metrics_cursor_totalOpened{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "opened/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(mongodb_ss_metrics_cursor_timedOut{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "timed_out/sec",
+          "refId": "B"
+        }
+      ],
+      "title": "Cursor Opened and Timed Out Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 44
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(mongodb_ss_metrics_ttl_deletedDocuments{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "deleted_docs/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(mongodb_ss_metrics_ttl_passes{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "passes/sec",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(mongodb_ss_metrics_ttl_subPasses{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "subpasses/sec",
+          "refId": "C"
+        }
+      ],
+      "title": "TTL Deletes and Passes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 44
+      },
+      "id": 24,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (assert_type) (rate(mongodb_ss_asserts{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))",
+          "legendFormat": "{{assert_type}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Asserts/sec by Type",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 52
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(mongodb_ss_globalLock_activeClients_readers{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "readers",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(mongodb_ss_globalLock_activeClients_writers{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "writers",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(mongodb_ss_globalLock_activeClients_total{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "total",
+          "refId": "C"
+        }
+      ],
+      "title": "Global Lock Active Clients",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 52
+      },
+      "id": 26,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (count_type) (mongodb_ss_globalLock_currentQueue{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})",
+          "legendFormat": "{{count_type}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Global Lock Queue",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 52
+      },
+      "id": 27,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (resource, lock_mode) (rate(mongodb_ss_locks_acquireWaitCount{job=~\"$job\",instance=~\"$instance\"}[5m]))",
+          "legendFormat": "{{resource}} {{lock_mode}} waits/sec",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (resource, lock_mode) (rate(mongodb_ss_locks_timeAcquiringMicros{job=~\"$job\",instance=~\"$instance\"}[5m]))",
+          "legendFormat": "{{resource}} {{lock_mode}} wait_us/sec",
+          "refId": "B"
+        }
+      ],
+      "title": "Lock Wait Count and Wait Time Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 60
+      },
+      "id": 28,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max by (instance, rs_nm) (mongodb_dbstats_fsTotalSize{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} total",
+          "refId": "A"
+        },
+        {
+          "expr": "max by (instance, rs_nm) (mongodb_dbstats_fsUsedSize{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} used",
+          "refId": "B"
+        },
+        {
+          "expr": "(max by (instance, rs_nm) (mongodb_dbstats_fsTotalSize{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}) - max by (instance, rs_nm) (mongodb_dbstats_fsUsedSize{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} free",
+          "refId": "C"
+        }
+      ],
+      "title": "Disk Capacity by Node (Total/Used/Free)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 60
+      },
+      "id": 29,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "100 * (max by (instance, rs_nm) (mongodb_dbstats_fsUsedSize{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)) / (max by (instance, rs_nm) (mongodb_dbstats_fsTotalSize{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1))",
+          "legendFormat": "{{member_idx}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Disk Utilization % by Node",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 68
+      },
+      "id": 30,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_wt_block_manager_bytes_read{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} read",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_wt_block_manager_bytes_written{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} write",
+          "refId": "B"
+        }
+      ],
+      "title": "Disk IO Throughput by Node (WiredTiger)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 68
+      },
+      "id": 31,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_wt_block_manager_blocks_read{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} read_ops",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_wt_block_manager_blocks_written{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} write_ops",
+          "refId": "B"
+        }
+      ],
+      "title": "Disk IO Ops/s by Node (WiredTiger Blocks)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*Bps"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "Bps"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*ops"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ops"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 68
+      },
+      "id": 32,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_wt_log_log_bytes_written{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} log_write_Bps",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_wt_log_log_write_operations{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} log_write_ops",
+          "refId": "B"
+        }
+      ],
+      "title": "WiredTiger Log Write Throughput by Node",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 76
+      },
+      "id": 33,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_extra_info_input_blocks{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} input_blocks/s",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_extra_info_output_blocks{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]))) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} output_blocks/s",
+          "refId": "B"
+        }
+      ],
+      "title": "OS Block IO Counters (input/output blocks)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 84
+      },
+      "id": 34,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "100 * ((sum by (instance, rs_nm) (rate(mongodb_ss_extra_info_user_time_us{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]) + rate(mongodb_ss_extra_info_system_time_us{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m])) / 1000000) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1))",
+          "legendFormat": "{{member_idx}} total",
+          "refId": "A"
+        },
+        {
+          "expr": "100 * ((sum by (instance, rs_nm) (rate(mongodb_ss_extra_info_user_time_us{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m])) / 1000000) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1))",
+          "legendFormat": "{{member_idx}} user",
+          "refId": "B"
+        },
+        {
+          "expr": "100 * ((sum by (instance, rs_nm) (rate(mongodb_ss_extra_info_system_time_us{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m])) / 1000000) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1))",
+          "legendFormat": "{{member_idx}} system",
+          "refId": "C"
+        }
+      ],
+      "title": "CPU Usage % by Node (mongod process)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 84
+      },
+      "id": 35,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_extra_info_user_time_us{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m]) + rate(mongodb_ss_extra_info_system_time_us{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m])) / 1000000) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} total",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Time Rate by Node (core-seconds/sec)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 92
+      },
+      "id": 36,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum by (instance, rs_nm) (mongodb_ss_mem_resident{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}) * 1048576) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} resident",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum by (instance, rs_nm) (mongodb_ss_mem_virtual{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}) * 1048576) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} virtual",
+          "refId": "B"
+        },
+        {
+          "expr": "(sum by (instance, rs_nm) (mongodb_ss_extra_info_maximum_resident_set_kb{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}) * 1024) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} max_rss",
+          "refId": "C"
+        }
+      ],
+      "title": "Memory by Node (Resident / Virtual / Max RSS)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 92
+      },
+      "id": 37,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "100 * ((sum by (instance, rs_nm) (mongodb_ss_mem_resident{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}) * 1048576) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)) / ((max by (instance, rs_nm) (mongodb_dbstats_fsTotalSize{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1))",
+          "legendFormat": "{{member_idx}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Memory Utilization % by Node (Resident vs FS Total)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*bytes"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 100
+      },
+      "id": 38,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum by (instance, rs_nm) (mongodb_ss_mem_secureAllocByteCount{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} secure_alloc_bytes",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum by (instance, rs_nm) (mongodb_ss_mem_secureAllocBytesInPages{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} secure_alloc_pages_bytes",
+          "refId": "B"
+        },
+        {
+          "expr": "(sum by (instance, rs_nm) (mongodb_ss_extra_info_threads{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"})) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} threads",
+          "refId": "C"
+        }
+      ],
+      "title": "Memory Security Allocator and Threads by Node",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 100
+      },
+      "id": 39,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_extra_info_pressure_cpu_some_totalMicros{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m])) / 1000000) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} cpu_some_stall_s_per_s",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_extra_info_pressure_cpu_full_totalMicros{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m])) / 1000000) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} cpu_full_stall_s_per_s",
+          "refId": "B"
+        },
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_extra_info_pressure_memory_some_totalMicros{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m])) / 1000000) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} mem_some_stall_s_per_s",
+          "refId": "C"
+        },
+        {
+          "expr": "(sum by (instance, rs_nm) (rate(mongodb_ss_extra_info_pressure_memory_full_totalMicros{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"}[5m])) / 1000000) * on(instance, rs_nm) group_left(member_idx) max by (instance, rs_nm, member_idx) (mongodb_rs_members_self{job=~\"$job\",instance=~\"$instance\",rs_nm=~\"$replset\"} == 1)",
+          "legendFormat": "{{member_idx}} mem_full_stall_s_per_s",
+          "refId": "D"
+        }
+      ],
+      "title": "CPU and Memory Pressure by Node",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 42,
+  "tags": [
+    "mongodb",
+    "production",
+    "prometheus"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "Prometheus",
+          "value": "prometheus"
+        },
+        "includeAll": false,
+        "label": "Prometheus",
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "",
+        "includeAll": true,
+        "label": "Job",
+        "multi": true,
+        "name": "job",
+        "options": [],
+        "query": "label_values(mongodb_up, job)",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "",
+        "includeAll": true,
+        "label": "Instance",
+        "multi": true,
+        "name": "instance",
+        "options": [],
+        "query": "label_values(mongodb_up{job=~\"$job\"}, instance)",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "",
+        "includeAll": true,
+        "label": "ReplicaSet",
+        "multi": true,
+        "name": "replset",
+        "options": [],
+        "query": "label_values(mongodb_rs_members_health{job=~\"$job\",instance=~\"$instance\"}, rs_nm)",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "",
+        "includeAll": true,
+        "label": "Database",
+        "multi": true,
+        "name": "database",
+        "options": [],
+        "query": "label_values(mongodb_dbstats_dataSize{job=~\"$job\",instance=~\"$instance\"}, database)",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "MongoDB Production Observability",
+  "uid": "mongodb-prod-observability"
+}

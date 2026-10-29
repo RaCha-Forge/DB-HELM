@@ -1,0 +1,90 @@
+{{- if .Values.integrations.mongodb.enabled }}
+{{- $m := .Values.integrations.mongodb }}
+{{- $cred := "" }}
+{{- if $m.user }}
+{{- $cred = printf "%s:%s@" (urlquery $m.user) (urlquery (toString $m.password)) }}
+{{- end }}
+{{- $uri := "" }}
+{{- $opts := list (printf "ssl=%v" $m.tls) }}
+{{- if $m.user }}{{ $opts = append $opts (printf "authSource=%s" $m.authDatabase) }}{{ end }}
+{{- $uri = printf "mongodb://%s%s/%s?%s" $cred (join "," $m.hosts) $m.authDatabase (join "&" $opts) }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongodb-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "mongodb-exporter" "component" "exporter") | nindent 4 }}
+type: Opaque
+stringData:
+  # The connection string embeds the credentials, so it lives in a Secret and is handed to the exporter via env.
+  MONGODB_URI: {{ $uri | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "mongodb-exporter" "component" "exporter") | nindent 4 }}
+spec:
+  replicas: {{ $m.replicas }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      {{- include "monitoring.selector" "mongodb-exporter" | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 25%, maxUnavailable: 25% }
+  template:
+    metadata:
+      labels:
+        {{- include "monitoring.labels" (dict "root" . "name" "mongodb-exporter" "component" "exporter") | nindent 8 }}
+      annotations:
+        checksum/secret: {{ $uri | sha256sum }}
+    spec:
+      {{- include "monitoring.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml $m.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: exporter
+          image: {{ include "monitoring.image" (dict "root" . "image" $m.image) }}
+          imagePullPolicy: {{ $m.image.pullPolicy }}
+          args:
+            {{- if $m.collectAll }}
+            - --collect-all
+            {{- end }}
+            - --mongodb.direct-connect={{ $m.directConnect }}
+          env:
+            - name: MONGODB_URI
+              valueFrom: { secretKeyRef: { name: mongodb-exporter, key: MONGODB_URI } }
+          ports:
+            - name: metrics
+              containerPort: 9216
+              protocol: TCP
+          readinessProbe:
+            tcpSocket: { port: metrics }
+            periodSeconds: 15
+          resources:
+            {{- toYaml $m.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "mongodb-exporter" "component" "exporter") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "monitoring.selector" "mongodb-exporter" | nindent 4 }}
+  ports:
+    - name: metrics
+      port: 9216
+      targetPort: metrics
+{{- end }}

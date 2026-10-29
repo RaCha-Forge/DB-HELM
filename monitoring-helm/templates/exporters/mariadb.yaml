@@ -1,0 +1,95 @@
+{{- if .Values.integrations.mariadb.enabled }}
+{{- $m := .Values.integrations.mariadb }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mariadb-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "mariadb-exporter" "component" "exporter") | nindent 4 }}
+type: Opaque
+stringData:
+  # Optional credentials: lines are omitted entirely when user / password are empty.
+  .my.cnf: |
+    [client]
+    host={{ $m.host }}
+    port={{ $m.port }}
+    {{- if $m.user }}
+    user={{ $m.user }}
+    {{- end }}
+    {{- if $m.password }}
+    password={{ $m.password | quote }}
+    {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "mariadb-exporter" "component" "exporter") | nindent 4 }}
+spec:
+  replicas: {{ $m.replicas }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      {{- include "monitoring.selector" "mariadb-exporter" | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 25%, maxUnavailable: 25% }
+  template:
+    metadata:
+      labels:
+        {{- include "monitoring.labels" (dict "root" . "name" "mariadb-exporter" "component" "exporter") | nindent 8 }}
+      annotations:
+        checksum/secret: {{ $m | toJson | sha256sum }}
+    spec:
+      {{- include "monitoring.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml $m.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: exporter
+          image: {{ include "monitoring.image" (dict "root" . "image" $m.image) }}
+          imagePullPolicy: {{ $m.image.pullPolicy }}
+          args:
+            - --config.my-cnf=/.my.cnf
+            - --web.listen-address=0.0.0.0:9104
+          ports:
+            - name: metrics
+              containerPort: 9104
+              protocol: TCP
+          readinessProbe:
+            tcpSocket: { port: metrics }
+            periodSeconds: 15
+          resources:
+            {{- toYaml $m.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - name: mysql-config
+              mountPath: /.my.cnf
+              subPath: .my.cnf
+              readOnly: true
+      volumes:
+        - name: mysql-config
+          secret:
+            secretName: mariadb-exporter
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "mariadb-exporter" "component" "exporter") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "monitoring.selector" "mariadb-exporter" | nindent 4 }}
+  ports:
+    - name: metrics
+      port: 9104
+      targetPort: metrics
+{{- end }}

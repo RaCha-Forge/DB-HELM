@@ -1,0 +1,1852 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Number of selected MinIO scrape targets currently UP.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "count(up{job=~\"minio-a|minio-b\",site=~\"$site\"} == 1)",
+          "format": "time_series",
+          "legendFormat": "Healthy targets",
+          "refId": "A"
+        }
+      ],
+      "title": "MinIO Target Health",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "max(minio_cluster_health_nodes_online_count{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "Online",
+          "refId": "A"
+        }
+      ],
+      "title": "Online Nodes",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "max(minio_cluster_health_nodes_offline_count{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "Offline",
+          "refId": "A"
+        }
+      ],
+      "title": "Offline Nodes",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "max(minio_cluster_health_drives_online_count{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "Online",
+          "refId": "A"
+        }
+      ],
+      "title": "Online Drives",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 5
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "max(minio_cluster_health_capacity_usable_total_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "Usable",
+          "refId": "A"
+        }
+      ],
+      "title": "Usable Capacity",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 0.15
+              },
+              {
+                "color": "green",
+                "value": 0.4
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 5
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "max(minio_cluster_health_capacity_usable_free_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "Free",
+          "refId": "A"
+        }
+      ],
+      "title": "Usable Free",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "id": 7,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "100 * (1 - max(minio_cluster_health_capacity_usable_free_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"}) / max(minio_cluster_health_capacity_usable_total_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"}))",
+          "format": "time_series",
+          "legendFormat": "{{server}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Storage Utilization",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 10
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "max(minio_cluster_usage_objects_count{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "Objects",
+          "refId": "A"
+        }
+      ],
+      "title": "Object Count",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 10
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "max(minio_cluster_usage_objects_total_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "Bytes",
+          "refId": "A"
+        }
+      ],
+      "title": "Data Stored",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 10
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "max(minio_cluster_usage_objects_count{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "{{site}} objects",
+          "refId": "A"
+        }
+      ],
+      "title": "Object Count Trend",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum by (type) (rate(minio_api_requests_total{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "{{type}}",
+          "refId": "A"
+        }
+      ],
+      "title": "S3 Requests / sec",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "expr": "sum(rate(minio_api_requests_4xx_errors_total{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "4xx",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(minio_api_requests_5xx_errors_total{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "5xx",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(minio_api_requests_errors_total{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "all errors",
+          "refId": "C"
+        }
+      ],
+      "title": "S3 Error Rate / sec",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 22
+      },
+      "id": 13,
+      "options": {},
+      "targets": [
+        {
+          "expr": "sum(minio_api_requests_inflight_total{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "{{site}}",
+          "refId": "A"
+        }
+      ],
+      "title": "API Requests In Flight",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 3,
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 22
+      },
+      "id": 14,
+      "options": {},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(minio_api_requests_ttfb_seconds_distribution{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m])))",
+          "format": "time_series",
+          "legendFormat": "p95",
+          "refId": "A"
+        }
+      ],
+      "title": "API TTFB p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 22
+      },
+      "id": 15,
+      "options": {},
+      "targets": [
+        {
+          "expr": "sum(rate(minio_api_requests_traffic_received_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "RX",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(minio_api_requests_traffic_sent_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "TX",
+          "refId": "B"
+        }
+      ],
+      "title": "API Traffic",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "id": 16,
+      "options": {},
+      "targets": [
+        {
+          "expr": "max(minio_system_cpu_user{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "user",
+          "refId": "A"
+        },
+        {
+          "expr": "max(minio_system_cpu_system{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "system",
+          "refId": "B"
+        },
+        {
+          "expr": "max(minio_system_cpu_load_perc{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "load %",
+          "refId": "C"
+        }
+      ],
+      "title": "CPU Load %",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 29
+      },
+      "id": 17,
+      "options": {},
+      "targets": [
+        {
+          "expr": "max(minio_system_memory_used_perc{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "{{site}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Memory Used %",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 1,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "id": 18,
+      "options": {},
+      "targets": [
+        {
+          "expr": "100 * minio_system_drive_used_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"} / minio_system_drive_total_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} / {{drive}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Drive Utilization by Drive",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "id": 19,
+      "options": {},
+      "targets": [
+        {
+          "expr": "minio_system_drive_free_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} / {{drive}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Drive Free by Drive",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Drive health: 0=offline, 1=healthy, 2=healing. Latency is microseconds.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "id": 20,
+      "options": {},
+      "targets": [
+        {
+          "expr": "minio_system_drive_health{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} / {{drive}}",
+          "refId": "A"
+        },
+        {
+          "expr": "minio_system_drive_api_latency_micros{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} / {{drive}} latency",
+          "refId": "B"
+        },
+        {
+          "expr": "minio_system_drive_io_errors_total{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} / {{drive}} I/O errors",
+          "refId": "C"
+        },
+        {
+          "expr": "minio_system_drive_timeout_errors_total{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} / {{drive}} timeouts",
+          "refId": "D"
+        }
+      ],
+      "title": "Drive Health",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Health values are 1=healthy and 0=unhealthy.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 52
+      },
+      "id": 21,
+      "options": {},
+      "targets": [
+        {
+          "expr": "minio_cluster_erasure_set_health{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} pool={{pool_id}} set={{set_id}}",
+          "refId": "A"
+        },
+        {
+          "expr": "minio_cluster_erasure_set_read_health{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} pool={{pool_id}} set={{set_id}} read",
+          "refId": "B"
+        },
+        {
+          "expr": "minio_cluster_erasure_set_write_health{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} pool={{pool_id}} set={{set_id}} write",
+          "refId": "C"
+        }
+      ],
+      "title": "Erasure Set Health",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 52
+      },
+      "id": 22,
+      "options": {},
+      "targets": [
+        {
+          "expr": "minio_cluster_erasure_set_online_drives_count{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} pool={{pool_id}} set={{set_id}} online",
+          "refId": "A"
+        },
+        {
+          "expr": "minio_cluster_erasure_set_healing_drives_count{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} pool={{pool_id}} set={{set_id}} healing",
+          "refId": "B"
+        }
+      ],
+      "title": "Erasure Set Online / Healing Drives",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Active-active site replication backlog and in-progress work.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 59
+      },
+      "id": 23,
+      "options": {},
+      "targets": [
+        {
+          "expr": "max(minio_cluster_replication_queued_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "queued bytes",
+          "refId": "A"
+        },
+        {
+          "expr": "max(minio_cluster_replication_queued_count{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "queued objects",
+          "refId": "B"
+        },
+        {
+          "expr": "max(minio_cluster_replication_in_progress_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "in progress bytes",
+          "refId": "C"
+        },
+        {
+          "expr": "max(minio_cluster_replication_in_progress_count{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "in progress objects",
+          "refId": "D"
+        }
+      ],
+      "title": "Replication Queue",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Transfer rates are bytes/sec; worker series are count values.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 59
+      },
+      "id": 24,
+      "options": {},
+      "targets": [
+        {
+          "expr": "max(minio_cluster_replication_active_workers{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "cluster workers",
+          "refId": "A"
+        },
+        {
+          "expr": "max(minio_replication_current_active_workers{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "node workers",
+          "refId": "B"
+        },
+        {
+          "expr": "max(minio_replication_current_transfer_rate{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "current transfer",
+          "refId": "C"
+        },
+        {
+          "expr": "max(minio_replication_average_transfer_rate{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "average transfer",
+          "refId": "D"
+        }
+      ],
+      "title": "Replication Workers / Transfer",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 67
+      },
+      "id": 25,
+      "options": {},
+      "targets": [
+        {
+          "expr": "sum(minio_cluster_replication_last_hour_failed_count{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "{{server}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Replication Failures (Last Hour)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 67
+      },
+      "id": 26,
+      "options": {},
+      "targets": [
+        {
+          "expr": "sum(minio_cluster_replication_errors_last_minute{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "{{server}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Replication Errors (Last Minute)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 67
+      },
+      "id": 27,
+      "options": {},
+      "targets": [
+        {
+          "expr": "sum(minio_cluster_replication_retries_last_minute{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "{{server}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Replication Retries (Last Minute)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 72
+      },
+      "id": 28,
+      "options": {},
+      "targets": [
+        {
+          "expr": "sum by (endpoint) (rate(minio_cluster_replication_sent_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "sent {{endpoint}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(minio_cluster_replication_received_bytes{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "received",
+          "refId": "B"
+        }
+      ],
+      "title": "Replication Sent / Received",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 72
+      },
+      "id": 29,
+      "options": {},
+      "targets": [
+        {
+          "expr": "sum(minio_cluster_replication_errors_last_minute{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "errors/min",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(minio_cluster_replication_retries_last_minute{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "retries/min",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(minio_cluster_replication_credential_errors{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "credential errors",
+          "refId": "C"
+        }
+      ],
+      "title": "Replication Errors / Retries Trend",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 79
+      },
+      "id": 30,
+      "options": {},
+      "targets": [
+        {
+          "expr": "minio_system_network_internode_rtt_ms{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} -> {{peer}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Internode RTT",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 3,
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 79
+      },
+      "id": 31,
+      "options": {},
+      "targets": [
+        {
+          "expr": "sum by (server) (rate(minio_system_network_internode_errors_total{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "errors",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (server) (rate(minio_system_network_internode_reconnects_total{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "reconnects",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (server) (rate(minio_system_network_internode_dial_errors_total{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "dial errors",
+          "refId": "C"
+        }
+      ],
+      "title": "Internode Errors / Reconnects",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "orange",
+                "value": 900
+              },
+              {
+                "color": "red",
+                "value": 3600
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 79
+      },
+      "id": 32,
+      "options": {},
+      "targets": [
+        {
+          "expr": "max(minio_scanner_last_activity_seconds{job=~\"minio-a|minio-b\",site=~\"$site\"})",
+          "format": "time_series",
+          "legendFormat": "{{server}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Scanner Last Activity",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "SMART status: 0 unknown, 1 healthy, 2 warning, 3 critical, 4 collection error.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 86
+      },
+      "id": 33,
+      "options": {},
+      "targets": [
+        {
+          "expr": "minio_system_drive_smart_status{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} / {{drive}} status",
+          "refId": "A"
+        },
+        {
+          "expr": "minio_system_drive_smart_temperature_celsius{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} / {{drive}} temp",
+          "refId": "B"
+        },
+        {
+          "expr": "minio_system_drive_smart_failure_risk{job=~\"minio-a|minio-b\",site=~\"$site\"}",
+          "format": "time_series",
+          "legendFormat": "{{site}} / {{drive}} failure risk",
+          "refId": "C"
+        }
+      ],
+      "title": "Drive SMART Status",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 3,
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 86
+      },
+      "id": 34,
+      "options": {},
+      "targets": [
+        {
+          "expr": "sum by (type) (rate(minio_api_requests_rejected_auth_total{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "auth",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (type) (rate(minio_api_requests_rejected_invalid_total{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "invalid",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (type) (rate(minio_api_requests_rejected_header_total{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "header",
+          "refId": "C"
+        },
+        {
+          "expr": "sum by (type) (rate(minio_api_requests_rejected_timestamp_total{job=~\"minio-a|minio-b\",site=~\"$site\"}[5m]))",
+          "format": "time_series",
+          "legendFormat": "timestamp",
+          "refId": "D"
+        }
+      ],
+      "title": "API Rejections",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "30s",
+  "schemaVersion": 42,
+  "tags": [
+    "minio",
+    "production",
+    "active-active",
+    "prometheus",
+    "v3"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "Prometheus",
+          "value": "prometheus"
+        },
+        "label": "Prometheus",
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "type": "datasource"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(up{job=~\"minio-a|minio-b\"},site)",
+        "includeAll": true,
+        "label": "MinIO Site",
+        "multi": true,
+        "name": "site",
+        "options": [],
+        "query": "label_values(up{job=~\"minio-a|minio-b\"},site)",
+        "refresh": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "MinIO Production - Active-Active v3",
+  "uid": "minio-prod-aact-v3"
+}

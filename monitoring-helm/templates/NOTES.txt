@@ -1,0 +1,25 @@
+Fyno monitoring stack "{{ .Release.Name }}" deployed to namespace {{ .Release.Namespace }}.
+
+Components
+  grafana     {{ ternary "ON " "off" .Values.grafana.enabled }}   prometheus  {{ ternary "ON " "off" .Values.prometheus.enabled }}
+  loki        {{ ternary "ON " "off" .Values.loki.enabled }}   promtail    {{ ternary "ON " "off" .Values.promtail.enabled }}
+
+Integrations
+  kafka       {{ ternary "ON " "off" .Values.integrations.kafka.enabled }}   mariadb     {{ ternary "ON " "off" .Values.integrations.mariadb.enabled }}
+  mongodb     {{ ternary "ON " "off" .Values.integrations.mongodb.enabled }}   minio       {{ ternary "ON " "off" .Values.integrations.minio.enabled }}
+  redis       {{ ternary "ON " "off" .Values.integrations.redis.enabled }}   kubernetes  {{ ternary "ON " "off" .Values.integrations.kubernetes.enabled }}
+
+Dashboards provisioned: {{ default "none" (include "monitoring.dashboardSets" .) }}
+{{- if .Values.grafana.enabled }}
+
+Open Grafana:
+{{- if eq .Values.grafana.service.type "NodePort" }}
+  kubectl -n {{ .Release.Namespace }} get svc grafana        # use <node-ip>:<NodePort>
+{{- else }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/grafana {{ .Values.grafana.service.port }}:{{ .Values.grafana.service.port }}
+{{- end }}
+  user: {{ .Values.grafana.admin.user }}
+{{- end }}
+
+Check scrape targets:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/prometheus 9090:9090   # then http://localhost:9090/targets

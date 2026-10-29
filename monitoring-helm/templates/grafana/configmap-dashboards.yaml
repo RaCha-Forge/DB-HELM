@@ -1,0 +1,22 @@
+{{- /*
+  One ConfigMap per dashboard set (Kubernetes caps a ConfigMap at 1 MiB).
+  The cluster namespace literal baked into the source JSON is swapped for the release namespace.
+*/ -}}
+{{- if .Values.grafana.enabled }}
+{{- range $set := compact (splitList "," (include "monitoring.dashboardSets" .)) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards-{{ $set }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" $ "name" "grafana" "component" "visualization") | nindent 4 }}
+    monitoring.fyno.io/dashboard-set: {{ $set }}
+data:
+  {{- range $path, $_ := $.Files.Glob (printf "dashboards/%s/*.json" $set) }}
+  {{ base $path }}: |-
+    {{- $.Files.Get $path | replace "fyno-vks-prod" $.Release.Namespace | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- end }}

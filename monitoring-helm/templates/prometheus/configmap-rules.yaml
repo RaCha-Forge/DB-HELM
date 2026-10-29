@@ -1,0 +1,16 @@
+{{- /*
+  Recording rules that roll pod metrics (cAdvisor) and object state (kube-state-metrics)
+  up to Deployment / StatefulSet / DaemonSet level. Source: files/fyno-workloads-rules.yml
+*/ -}}
+{{- if and .Values.prometheus.enabled .Values.integrations.kubernetes.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "prometheus" "component" "metrics") | nindent 4 }}
+data:
+  rules.yml: |
+    {{- .Files.Get "files/fyno-workloads-rules.yml" | nindent 4 }}
+{{- end }}

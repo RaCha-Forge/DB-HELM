@@ -1,0 +1,109 @@
+{{- if .Values.grafana.enabled }}
+{{- $g := .Values.grafana }}
+{{- $sets := compact (splitList "," (include "monitoring.dashboardSets" .)) }}
+{{- $adminSecret := default "grafana-admin" $g.admin.existingSecret }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "grafana" "component" "visualization") | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: grafana
+  podManagementPolicy: OrderedReady
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      {{- include "monitoring.selector" "grafana" | nindent 6 }}
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "monitoring.labels" (dict "root" . "name" "grafana" "component" "visualization") | nindent 8 }}
+      annotations:
+        checksum/datasources: {{ include (print $.Template.BasePath "/grafana/secret-datasources.yaml") . | sha256sum }}
+        checksum/admin: {{ include (print $.Template.BasePath "/grafana/secret-admin.yaml") . | sha256sum }}
+    spec:
+      {{- include "monitoring.pullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml $g.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: grafana
+          image: {{ include "monitoring.image" (dict "root" . "image" $g.image) }}
+          imagePullPolicy: {{ $g.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom: { secretKeyRef: { name: {{ $adminSecret }}, key: admin-user } }
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ $adminSecret }}, key: admin-password } }
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+            {{- with $g.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            {{- toYaml $g.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml $g.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+            - name: datasources
+              mountPath: /etc/grafana/provisioning/datasources
+              readOnly: true
+            {{- if $sets }}
+            - name: dashboard-provider
+              mountPath: /etc/grafana/provisioning/dashboards
+              readOnly: true
+            {{- end }}
+            {{- range $sets }}
+            - name: dash-{{ . }}
+              mountPath: /var/lib/grafana-dashboards/{{ include "monitoring.dashboardFolder" . }}
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: datasources
+          secret:
+            secretName: grafana-datasources
+        {{- if $sets }}
+        - name: dashboard-provider
+          configMap:
+            name: grafana-dashboard-provider
+        {{- end }}
+        {{- range $sets }}
+        - name: dash-{{ . }}
+          configMap:
+            name: grafana-dashboards-{{ . }}
+        {{- end }}
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: grafana-data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.global.storageClassName }}
+        volumeMode: Filesystem
+        resources:
+          requests:
+            storage: {{ $g.persistence.size }}
+{{- end }}

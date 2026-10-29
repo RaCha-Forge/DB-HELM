@@ -1,0 +1,41 @@
+{{- if .Values.promtail.enabled }}
+{{- $ns := default (list .Release.Namespace) .Values.promtail.namespaces }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: promtail
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "promtail" "component" "log-shipper") | nindent 4 }}
+{{- /* Pod discovery only needs read access to pods in the namespaces being scraped: least privilege, no ClusterRole. */}}
+{{- range $ns }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: promtail
+  namespace: {{ . }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" $ "name" "promtail" "component" "log-shipper") | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: promtail
+  namespace: {{ . }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" $ "name" "promtail" "component" "log-shipper") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: promtail
+subjects:
+  - kind: ServiceAccount
+    name: promtail
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
+{{- end }}
