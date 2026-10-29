@@ -1,0 +1,14 @@
+{{- if eq .Values.services.Maria.enabled "true" }}
+
+{{- if eq .Values.services.MariaController.enabled "true" }}
+apiVersion: v1
+data:
+  mariadb_ha_controller.py: |
+    {{- (.Files.Get "files/mariadb_ha_controller.py") | nindent 4 }}
+kind: ConfigMap
+metadata:
+  name: mariadb-ha-controller-script
+  namespace: {{ .Values.Namespace.name }}
+
+{{- end }}
+{{- end }}

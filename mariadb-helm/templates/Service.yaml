@@ -1,0 +1,54 @@
+# Headless service for mariadb-0 StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb-0
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mariadb
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    mariadb-index: "0"
+spec:
+  clusterIP: None  # Headless service
+  selector:
+    app: mariadb
+    mariadb-index: "0"
+  ports:
+    - port: {{ .Values.services.Maria.port }}
+---
+{{- range $index := until (int .Values.mariadb.replicaCount) }}
+# Headless service for mariadb-{{ add $index 1 }} StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb-{{ add $index 1 }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: mariadb
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    mariadb-index: "{{ add $index 1 }}"
+spec:
+  clusterIP: None  # Headless service
+  selector:
+    app: mariadb
+    mariadb-index: "{{ add $index 1 }}"
+  ports:
+    - port: {{ $.Values.services.Maria.port }}
+---
+{{- end }}
+# ClusterIP service for dynamic routing (updated by HA controller)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mariadb
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+spec:
+  type: ClusterIP
+  selector:
+    app: mariadb
+    role: primary
+  ports:
+    - port: {{ .Values.services.Maria.port }}

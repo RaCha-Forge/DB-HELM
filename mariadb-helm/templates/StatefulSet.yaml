@@ -1,0 +1,412 @@
+{{- if eq .Values.services.Maria.enabled "true" }}
+
+# ===========================
+# PRIMARY MARIADB STATEFULSET (mariadb-0)
+# ===========================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mariadb-0
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mariadb
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    mariadb-index: "0"
+spec:
+  serviceName: mariadb-0
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb
+      mariadb-index: "0"
+  template:
+    metadata:
+      labels:
+        app: mariadb
+        role: primary
+        mariadb-index: "0"
+    spec:
+{{- if eq .Values.services.MariaController.runAsSidecar "true" }}
+      serviceAccountName: mariadb-ha-sa
+{{- end }}
+      containers:
+        - name: mariadb
+          image: {{ .Values.services.Maria.image }}
+          args:
+          - "--server-id=1"
+          - "--port={{ .Values.services.Maria.port }}"
+          - "--log-bin=mysql-bin"
+          - "--binlog-format=ROW"
+          - "--gtid_strict_mode=ON"
+          - "--log_slave_updates=ON"
+          - "--skip-slave-start"
+          - "--bind-address=0.0.0.0"
+          - "--max-connections={{ .Values.mariadb.performance.maxConnections }}"
+          - "--max-allowed-packet={{ .Values.mariadb.performance.maxAllowedPacket }}"
+          - "--back-log={{ .Values.mariadb.performance.backlog }}"
+          - "--innodb-buffer-pool-size={{ .Values.mariadb.performance.innodbBufferPoolSize }}"
+          - "--innodb-log-buffer-size={{ .Values.mariadb.performance.innodbLogBufferSize }}"
+          - "--query-cache-size={{ .Values.mariadb.performance.queryCacheSize }}"
+          - "--thread-stack={{ .Values.mariadb.performance.threadStackSize }}"
+          - "--thread-cache-size={{ .Values.mariadb.performance.threadCacheSize }}"
+          - "--sort-buffer-size={{ .Values.mariadb.performance.sortBufferSize }}"
+          - "--read-rnd-buffer-size={{ .Values.mariadb.performance.readRndBufferSize }}"
+          - "--read-buffer-size={{ .Values.mariadb.performance.readBufferSize }}"
+          - "--join-buffer-size={{ .Values.mariadb.performance.joinBufferSize }}"
+          - "--tmp-table-size={{ .Values.mariadb.performance.tmpTableSize }}"
+          - "--max-heap-table-size={{ .Values.mariadb.performance.maxHeapTableSize }}"
+          - "--innodb-autoinc-lock-mode={{ .Values.mariadb.performance.innodbAutoincLockMode }}"
+          - "--innodb-flush-log-at-trx-commit={{ .Values.mariadb.performance.innodbFlushLogAtTrxCommit }}"
+          - "--innodb-flush-method={{ .Values.mariadb.performance.innodbFlushMethod }}"
+          - "--innodb-write-io-threads={{ .Values.mariadb.performance.innodbWriteIoThreads }}"
+          - "--innodb-read-io-threads={{ .Values.mariadb.performance.innodbReadIoThreads }}"
+          - "--innodb-purge-threads={{ .Values.mariadb.performance.innodbPurgeThreads }}"
+          - "--sync-binlog={{ .Values.mariadb.performance.syncBinlog }}"
+          - "--master-verify-checksum={{ .Values.mariadb.performance.masterVerifyChecksum }}"
+          - "--slave-sql-verify-checksum={{ .Values.mariadb.performance.slaveSqlVerifyChecksum }}"
+          - "--binlog-expire-logs-seconds={{ .Values.mariadb.performance.binlogExpireLogsSeconds }}"
+          - "--slow-query-log={{ .Values.mariadb.performance.slowQueryLog }}"
+          - "--slow-query-log-file={{ .Values.mariadb.performance.slowQueryLogFile }}"
+          - "--long-query-time={{ .Values.mariadb.performance.longQueryTime }}"
+          - "--log-queries-not-using-indexes={{ .Values.mariadb.performance.logQueriesNotUsingIndexes }}"
+          env:
+            - name: MARIADB_PORT
+              value: {{ .Values.services.Maria.port | quote }}
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: root-password
+            - name: MARIADB_DATABASE
+              value: "fyno_db"
+            - name: MARIADB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: app-user
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: app-password
+          ports:
+            - name: mysql
+              containerPort: {{ .Values.services.Maria.port }}
+          resources:
+            requests:
+              cpu: {{ .Values.services.Maria.resources.requests.cpu | quote }}
+              memory: {{ .Values.services.Maria.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.services.Maria.resources.limits.cpu | quote }}
+              memory: {{ .Values.services.Maria.resources.limits.memory | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "mariadb-admin ping -uroot -p${MARIADB_ROOT_PASSWORD}"
+            failureThreshold: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "mariadb-admin ping -uroot -p${MARIADB_ROOT_PASSWORD} && mariadb -uroot -p${MARIADB_ROOT_PASSWORD} -e 'SELECT 1' | grep 1"
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "mariadb-admin ping -uroot -p${MARIADB_ROOT_PASSWORD}"
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+{{- if eq .Values.services.MariaController.runAsSidecar "true" }}
+        - name: ha-controller
+          image: python:3.11-slim
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apt-get update && apt-get install -y default-mysql-client && \
+              pip install --no-cache-dir pymysql kubernetes && \
+              python /scripts/mariadb_ha_controller.py
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: PRIMARY_HOST
+              value: "mariadb-0-0.mariadb-0.{{ $.Release.Namespace }}.svc.cluster.local"
+            - name: SERVICE_NAME
+              value: "mariadb"
+            - name: REPLICA_HOSTS
+              value: "{{- range $index := until (int $.Values.mariadb.replicaCount) }}{{ if $index }},{{ end }}mariadb-{{ add $index 1 }}-0.mariadb-{{ add $index 1 }}.{{ $.Release.Namespace }}.svc.cluster.local{{- end }}"
+            - name: REPLICA_PORTS
+              value: "{{- range $index := until (int $.Values.mariadb.replicaCount) }}{{ if $index }},{{ end }}{{ $.Values.services.Maria.port }}{{- end }}"
+            - name: PROMOTABLE_REPLICAS
+              value: "{{ $.Values.mariadb.promotableReplicas }}"
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: root-password
+            - name: LEADER_ELECTION_ENABLED
+              value: "true"
+            - name: LEASE_NAME
+              value: "mariadb-ha-controller-lease"
+            - name: HEALTH_CHECK_INTERVAL
+              value: "5"
+          volumeMounts:
+            - name: ha-scripts
+              mountPath: /scripts
+            - name: ha-state
+              mountPath: /var/lib/ha-controller
+          resources:
+            requests:
+              cpu: {{ .Values.services.MariaController.resources.requests.cpu | quote }}
+              memory: {{ .Values.services.MariaController.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.services.MariaController.resources.limits.cpu | quote }}
+              memory: {{ .Values.services.MariaController.resources.limits.memory | quote }}
+{{- end }}
+      volumes:
+{{- if eq .Values.services.MariaController.runAsSidecar "true" }}
+        - name: ha-scripts
+          configMap:
+            name: mariadb-ha-controller-script
+            defaultMode: 0755
+        - name: ha-state
+          emptyDir: {}
+{{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: "{{ .Values.storageClass.name }}"
+        resources:
+          requests:
+            storage: {{ .Values.storageClass.resources.requests.storage }}
+
+{{- range $index := until (int .Values.mariadb.replicaCount) }}
+---
+# ===========================
+# REPLICA MARIADB STATEFULSET (mariadb-{{ add $index 1 }})
+# ===========================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mariadb-{{ add $index 1 }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: mariadb
+    chart: {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    mariadb-index: "{{ add $index 1 }}"
+spec:
+  serviceName: mariadb-{{ add $index 1 }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb
+      mariadb-index: "{{ add $index 1 }}"
+  template:
+    metadata:
+      labels:
+        app: mariadb
+        role: replica
+        mariadb-index: "{{ add $index 1 }}"
+    spec:
+{{- if eq $.Values.services.MariaController.runAsSidecar "true" }}
+      serviceAccountName: mariadb-ha-sa
+{{- end }}
+      containers:
+        - name: mariadb
+          image: {{ $.Values.services.Maria.image }}
+          args:
+          - "--server-id={{ add $index 2 }}"
+          - "--port={{ $.Values.services.Maria.port }}"
+          - "--log-bin=mysql-bin"
+          - "--binlog-format=ROW"
+          - "--gtid_strict_mode=ON"
+          - "--log_slave_updates=ON"
+          - "--skip-slave-start"
+          - "--bind-address=0.0.0.0"
+          - "--max-connections={{ $.Values.mariadb.performance.maxConnections }}"
+          - "--max-allowed-packet={{ $.Values.mariadb.performance.maxAllowedPacket }}"
+          - "--back-log={{ $.Values.mariadb.performance.backlog }}"
+          - "--innodb-buffer-pool-size={{ $.Values.mariadb.performance.innodbBufferPoolSize }}"
+          - "--innodb-log-buffer-size={{ $.Values.mariadb.performance.innodbLogBufferSize }}"
+          - "--query-cache-size={{ $.Values.mariadb.performance.queryCacheSize }}"
+          - "--thread-stack={{ $.Values.mariadb.performance.threadStackSize }}"
+          - "--thread-cache-size={{ $.Values.mariadb.performance.threadCacheSize }}"
+          - "--sort-buffer-size={{ $.Values.mariadb.performance.sortBufferSize }}"
+          - "--read-rnd-buffer-size={{ $.Values.mariadb.performance.readRndBufferSize }}"
+          - "--read-buffer-size={{ $.Values.mariadb.performance.readBufferSize }}"
+          - "--join-buffer-size={{ $.Values.mariadb.performance.joinBufferSize }}"
+          - "--tmp-table-size={{ $.Values.mariadb.performance.tmpTableSize }}"
+          - "--max-heap-table-size={{ $.Values.mariadb.performance.maxHeapTableSize }}"
+          - "--innodb-autoinc-lock-mode={{ $.Values.mariadb.performance.innodbAutoincLockMode }}"
+          - "--innodb-flush-log-at-trx-commit={{ $.Values.mariadb.performance.innodbFlushLogAtTrxCommit }}"
+          - "--innodb-flush-method={{ $.Values.mariadb.performance.innodbFlushMethod }}"
+          - "--innodb-write-io-threads={{ $.Values.mariadb.performance.innodbWriteIoThreads }}"
+          - "--innodb-read-io-threads={{ $.Values.mariadb.performance.innodbReadIoThreads }}"
+          - "--innodb-purge-threads={{ $.Values.mariadb.performance.innodbPurgeThreads }}"
+          - "--sync-binlog={{ $.Values.mariadb.performance.syncBinlog }}"
+          - "--master-verify-checksum={{ $.Values.mariadb.performance.masterVerifyChecksum }}"
+          - "--slave-sql-verify-checksum={{ $.Values.mariadb.performance.slaveSqlVerifyChecksum }}"
+          - "--binlog-expire-logs-seconds={{ $.Values.mariadb.performance.binlogExpireLogsSeconds }}"
+          - "--slow-query-log={{ $.Values.mariadb.performance.slowQueryLog }}"
+          - "--slow-query-log-file={{ $.Values.mariadb.performance.slowQueryLogFile }}"
+          - "--long-query-time={{ $.Values.mariadb.performance.longQueryTime }}"
+          - "--log-queries-not-using-indexes={{ $.Values.mariadb.performance.logQueriesNotUsingIndexes }}"
+          env:
+            - name: MARIADB_PORT
+              value: {{ $.Values.services.Maria.port | quote }}
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: root-password
+            - name: MARIADB_DATABASE
+              value: "fyno_db"
+            - name: MARIADB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: app-user
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: app-password
+          ports:
+            - name: mysql
+              containerPort: {{ $.Values.services.Maria.port }}
+          resources:
+            requests:
+              cpu: {{ $.Values.services.Maria.resources.requests.cpu | quote }}
+              memory: {{ $.Values.services.Maria.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ $.Values.services.Maria.resources.limits.cpu | quote }}
+              memory: {{ $.Values.services.Maria.resources.limits.memory | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "mariadb-admin ping -uroot -p${MARIADB_ROOT_PASSWORD}"
+            failureThreshold: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "mariadb-admin ping -uroot -p${MARIADB_ROOT_PASSWORD} && mariadb -uroot -p${MARIADB_ROOT_PASSWORD} -e 'SELECT 1' | grep 1"
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "mariadb-admin ping -uroot -p${MARIADB_ROOT_PASSWORD}"
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+{{- if eq $.Values.services.MariaController.runAsSidecar "true" }}
+        - name: ha-controller
+          image: python:3.11-slim
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apt-get update && apt-get install -y default-mysql-client && \
+              pip install --no-cache-dir pymysql kubernetes && \
+              python /scripts/mariadb_ha_controller.py
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: PRIMARY_HOST
+              value: "mariadb-0-0.mariadb-0.{{ $.Release.Namespace }}.svc.cluster.local"
+            - name: SERVICE_NAME
+              value: "mariadb"
+            - name: REPLICA_HOSTS
+              value: "{{- range $idx := until (int $.Values.mariadb.replicaCount) }}{{ if $idx }},{{ end }}mariadb-{{ add $idx 1 }}-0.mariadb-{{ add $idx 1 }}.{{ $.Release.Namespace }}.svc.cluster.local{{- end }}"
+            - name: REPLICA_PORTS
+              value: "{{- range $idx := until (int $.Values.mariadb.replicaCount) }}{{ if $idx }},{{ end }}{{ $.Values.services.Maria.port }}{{- end }}"
+            - name: PROMOTABLE_REPLICAS
+              value: "{{ $.Values.mariadb.promotableReplicas }}"
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: root-password
+            - name: LEADER_ELECTION_ENABLED
+              value: "true"
+            - name: LEASE_NAME
+              value: "mariadb-ha-controller-lease"
+            - name: HEALTH_CHECK_INTERVAL
+              value: "60"
+          volumeMounts:
+            - name: ha-scripts
+              mountPath: /scripts
+            - name: ha-state
+              mountPath: /var/lib/ha-controller
+          resources:
+            requests:
+              cpu: {{ $.Values.services.MariaController.resources.requests.cpu | quote }}
+              memory: {{ $.Values.services.MariaController.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ $.Values.services.MariaController.resources.limits.cpu | quote }}
+              memory: {{ $.Values.services.MariaController.resources.limits.memory | quote }}
+{{- end }}
+      volumes:
+{{- if eq $.Values.services.MariaController.runAsSidecar "true" }}
+        - name: ha-scripts
+          configMap:
+            name: mariadb-ha-controller-script
+            defaultMode: 0755
+        - name: ha-state
+          emptyDir: {}
+{{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: "{{ $.Values.storageClass.name }}"
+        resources:
+          requests:
+            storage: {{ $.Values.storageClass.resources.requests.storage }}
+{{- end }}
+
+{{- end }}

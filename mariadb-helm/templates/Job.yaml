@@ -1,0 +1,130 @@
+
+{{- if eq .Values.services.Maria.enabled "true" }}
+{{- if eq .Values.services.ReplicationInitJob.enabled "true" }}
+
+# ===========================
+# REPLICATION INIT JOB
+# ===========================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mariadb-replication-init
+  namespace: {{ .Release.Namespace }}
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: init
+          image: {{ .Values.services.ReplicationInitJob.image | default "mysql:8.0" }}
+          command: ["/bin/bash", "-c"]
+          env:
+            - name: ROOT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: root-password
+            - name: APP_USER
+              value: {{ .Values.secrets.appUser | quote }}
+            - name: APP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: mariadb-secret
+                  key: app-password
+            - name: REPLICA_COUNT
+              value: {{ .Values.mariadb.replicaCount | quote }}
+          args:
+            - |
+              set -euo pipefail
+
+              PRIMARY_HOST="mariadb-0-0.mariadb-0.{{ .Release.Namespace }}.svc.cluster.local"
+              REPLICA_COUNT="{{ .Values.mariadb.replicaCount }}"
+
+              echo "Waiting for MariaDB primary (mariadb-0-0) to be ready..."
+              for i in $(seq 1 90); do
+                if mysqladmin ping -h "$PRIMARY_HOST" -P {{ $.Values.services.Maria.port | quote }} -uroot -p"$ROOT_PASS" --silent; then
+                  echo "Primary is ready"; break; fi
+                sleep 2
+                if [ "$i" -eq 90 ]; then echo "Primary not ready after wait"; exit 1; fi
+              done
+
+              echo "Creating root@% for ProxySQL / external access..."
+              mysql -h "$PRIMARY_HOST" -P {{ $.Values.services.Maria.port | quote }} -uroot -p"$ROOT_PASS" <<EOF
+              CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '$ROOT_PASS';
+              GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+              FLUSH PRIVILEGES;
+              EOF
+
+              echo "Creating replication + app users..."
+              mysql -h "$PRIMARY_HOST" -P {{ $.Values.services.Maria.port | quote }} -uroot -p"$ROOT_PASS" <<EOF
+              CREATE DATABASE IF NOT EXISTS phpmyadmin;
+              CREATE USER IF NOT EXISTS '$APP_USER'@'%' IDENTIFIED BY '$APP_PASS';
+              GRANT ALL PRIVILEGES ON *.* TO '$APP_USER'@'%' WITH GRANT OPTION;
+
+              CREATE USER IF NOT EXISTS 'repl'@'%' IDENTIFIED BY '$ROOT_PASS';
+              GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
+
+              CREATE USER IF NOT EXISTS 'monitor'@'%' IDENTIFIED BY 'monitor';
+              GRANT REPLICATION CLIENT ON *.* TO 'monitor'@'%';
+              GRANT PROCESS ON *.* TO 'monitor'@'%';
+              FLUSH PRIVILEGES;
+              EOF
+
+              echo "Waiting for all $REPLICA_COUNT replicas to be ready..."
+              for i in $(seq 1 $REPLICA_COUNT); do
+                REPLICA_HOST="mariadb-${i}-0.mariadb-${i}.{{ .Release.Namespace }}.svc.cluster.local"
+                echo "Waiting for replica mariadb-${i}-0 at $REPLICA_HOST..."
+                
+                # Wait for DNS
+                for j in $(seq 1 90); do
+                  if getent hosts "$REPLICA_HOST" >/dev/null 2>&1; then 
+                    echo "  DNS resolved for mariadb-${i}-0"
+                    break
+                  fi
+                  sleep 2
+                  if [ "$j" -eq 90 ]; then 
+                    echo "  ERROR: DNS failed for mariadb-${i}-0 after 3 minutes"
+                    exit 1
+                  fi
+                done
+
+                # Wait for MySQL to be ready
+                for j in $(seq 1 90); do
+                  if mysqladmin ping -h "$REPLICA_HOST" -P {{ $.Values.services.Maria.port | quote }} -uroot -p"$ROOT_PASS" --silent 2>/dev/null; then
+                    echo "  ✓ mariadb-${i}-0 is ready"
+                    break
+                  fi
+                  sleep 2
+                  if [ "$j" -eq 90 ]; then 
+                    echo "  ERROR: mariadb-${i}-0 not ready after 3 minutes"
+                    exit 1
+                  fi
+                done
+              done
+
+              echo "All replicas are ready. Configuring replication..."
+              for i in $(seq 1 $REPLICA_COUNT); do
+                REPLICA_HOST="mariadb-${i}-0.mariadb-${i}.{{ .Release.Namespace }}.svc.cluster.local"
+                echo "Configuring replica mariadb-${i}-0: $REPLICA_HOST"
+
+                echo "Setting up GTID replication on mariadb-${i}-0..."
+                mysql -h "$REPLICA_HOST" -P {{ $.Values.services.Maria.port | quote }} -uroot -p"$ROOT_PASS" <<EOF
+              STOP SLAVE;
+              RESET SLAVE ALL;
+
+              CHANGE MASTER TO
+                MASTER_HOST='$PRIMARY_HOST',
+                MASTER_USER='repl',
+                MASTER_PASSWORD='$ROOT_PASS',
+                MASTER_USE_GTID=slave_pos;
+
+              START SLAVE;
+              EOF
+                echo "✔ mariadb-${i}-0 configured."
+              done
+
+              echo "✔ All $REPLICA_COUNT replicas configured with GTID replication."
+              
+{{- end }}
+{{- end }}

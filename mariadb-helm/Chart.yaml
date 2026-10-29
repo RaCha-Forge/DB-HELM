@@ -1,0 +1,6 @@
+apiVersion: v2
+name: MariaDB
+description: Helm chart for MariaDB services
+version: 11.4.0
+appVersion: "11.4"
+icon: https://mariadb.org/wp-content/uploads/2019/11/mariadb-logo.png

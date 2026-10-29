@@ -1,0 +1,202 @@
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: mariadb
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: mariadb-secrets
+#   namespace: mariadb
+# type: Opaque
+# stringData:
+#   MARIADB_ROOT_PASSWORD: "C])7uHEeel9GmTQ]"
+#   MARIADB_DATABASE: "fyno_db"
+#   MARIADB_USER: "proxy_user"
+#   MARIADB_PASSWORD: "C])7uHEeel9GmTQ]"
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: mariadb-init
+#   namespace: mariadb
+# data:
+#   create-proxy-user.sql: |
+#     CREATE USER IF NOT EXISTS 'proxy_user'@'%' IDENTIFIED BY 'C])7uHEeel9GmTQ]';
+#     GRANT ALL PRIVILEGES ON *.* TO 'proxy_user'@'%' WITH GRANT OPTION;
+#     FLUSH PRIVILEGES;
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: mariadb-config
+#   namespace: mariadb
+# data:
+#   my.cnf: |
+#     [mysqld]
+#     user=mysql
+#     bind-address=0.0.0.0
+#     default_storage_engine=InnoDB
+#     skip-name-resolve
+#     skip-host-cache
+
+#     # -----------------------------
+#     # PERFORMANCE & IO OPTIMIZATION
+#     # -----------------------------
+#     innodb_flush_method=O_DIRECT
+#     innodb_flush_log_at_trx_commit=2
+#     innodb_doublewrite=0
+#     innodb_thread_concurrency=0
+#     innodb_read_io_threads=8
+#     innodb_write_io_threads=8
+#     innodb_io_capacity=4000
+#     innodb_io_capacity_max=8000
+#     innodb_lru_scan_depth=2048
+#     innodb_adaptive_hash_index=ON
+
+#     # -----------------------------
+#     # MEMORY TUNING
+#     # -----------------------------
+#     innodb_buffer_pool_size=2G
+#     innodb_buffer_pool_instances=2
+#     innodb_log_file_size=1G
+#     innodb_log_buffer_size=256M
+#     max_connections=1000
+#     table_open_cache=4000
+#     thread_cache_size=128
+#     tmp_table_size=128M
+#     max_heap_table_size=128M
+#     join_buffer_size=8M
+#     sort_buffer_size=4M
+#     read_buffer_size=4M
+#     read_rnd_buffer_size=8M
+
+#     # -----------------------------
+#     # QUERY OPTIMIZATION
+#     # -----------------------------
+#     query_cache_type=0
+#     query_cache_size=0
+#     optimizer_switch='index_merge=on,index_merge_union=on,index_merge_sort_union=on,index_merge_intersection=on'
+
+#     # -----------------------------
+#     # LOGGING
+#     # -----------------------------
+#     log_error=/var/lib/mysql/mariadb.err
+#     slow_query_log=1
+#     slow_query_log_file=/var/lib/mysql/mariadb-slow.log
+#     long_query_time=1
+
+#     # -----------------------------
+#     # SECURITY & STABILITY
+#     # -----------------------------
+#     skip-symbolic-links
+#     innodb_strict_mode=ON
+#     sql_mode=STRICT_ALL_TABLES,NO_ENGINE_SUBSTITUTION
+#     max_allowed_packet=64M
+#     wait_timeout=28800
+#     interactive_timeout=28800
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: mariadb
+#   namespace: mariadb
+# spec:
+#   clusterIP: None
+#   ports:
+#     - name: mysql
+#       port: 3306
+#       targetPort: 3306
+#   selector:
+#     app: mariadb
+# ---
+# apiVersion: apps/v1
+# kind: StatefulSet
+# metadata:
+#   name: mariadb
+#   namespace: mariadb
+# spec:
+#   serviceName: mariadb
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: mariadb
+#   template:
+#     metadata:
+#       labels:
+#         app: mariadb
+#     spec:
+#       terminationGracePeriodSeconds: 30
+#       affinity:
+#         podAntiAffinity:
+#           requiredDuringSchedulingIgnoredDuringExecution:
+#             - labelSelector:
+#                 matchExpressions:
+#                   - key: app
+#                     operator: In
+#                     values:
+#                       - mariadb
+#               topologyKey: "kubernetes.io/hostname"
+#       containers:
+#         - name: mariadb
+#           image: mariadb:11.4
+#           imagePullPolicy: IfNotPresent
+#           ports:
+#             - containerPort: 3306
+#               name: mysql
+#           envFrom:
+#             - secretRef:
+#                 name: mariadb-secrets
+#           env:
+#             - name: MARIADB_SKIP_CHOWN
+#               value: "1"
+#           securityContext:
+#             runAsUser: 0
+#             runAsGroup: 0
+#           volumeMounts:
+#             - name: data
+#               mountPath: /var/lib/mysql
+#             - name: config
+#               mountPath: /etc/mysql/conf.d
+#             - name: init-sql
+#               mountPath: /docker-entrypoint-initdb.d
+#           resources:
+#             requests:
+#               cpu: "1"
+#               memory: "2Gi"
+#             limits:
+#               cpu: "2"
+#               memory: "4Gi"
+#           # readinessProbe:
+#           #   exec:
+#           #     command:
+#           #       - sh
+#           #       - -c
+#           #       - "mysqladmin ping -uroot -p${MARIADB_ROOT_PASSWORD}"
+#           #   initialDelaySeconds: 20
+#           #   periodSeconds: 10
+#           #   timeoutSeconds: 5
+#           # livenessProbe:
+#           #   exec:
+#           #     command:
+#           #       - sh
+#           #       - -c
+#           #       - "mysqladmin ping -uroot -p${MARIADB_ROOT_PASSWORD}"
+#           #   initialDelaySeconds: 60
+#           #   periodSeconds: 30
+#       volumes:
+#         - name: config
+#           configMap:
+#             name: mariadb-config
+#         - name: init-sql
+#           configMap:
+#             name: mariadb-init
+#   volumeClaimTemplates:
+#     - metadata:
+#         name: data
+#       spec:
+#         accessModes: ["ReadWriteOnce"]
+#         storageClassName: {{ .Values.storageClass.resources.requests.storage }}
+#         resources:
+#           requests:
+#             storage: 200Gi

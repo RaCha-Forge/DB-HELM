@@ -1,0 +1,156 @@
+# Controller configuration
+mariadb:
+  replicaCount: 0  # Number of replica pods (total pods = replicaCount + 1)
+  # Pod naming: mariadb-0-0 (primary), mariadb-1-0 (first replica), mariadb-2-0 (second replica), etc.
+  # Each gets its own StatefulSet (mariadb-0, mariadb-1, mariadb-2, etc.)
+  promotableReplicas: "0"     # Comma-separated ARRAY indexes of replicas eligible for promotion
+                               # IMPORTANT: Uses 0-based array indexing into REPLICA_HOSTS list:
+                               #   0 = first replica (mariadb-1-0)
+                               #   1 = second replica (mariadb-2-0)
+                               #   2 = third replica (mariadb-3-0), etc.
+                               # Examples: "0" (only first replica), "0,1" (first two replicas), "0,1,2" (first three replicas)
+                               # Empty = all replicas promotable
+  
+  # ===========================
+  # PERFORMANCE TUNING PARAMETERS
+  # ===========================
+  performance:
+    # Connection handling
+    maxConnections: 3000              # Max client connections
+    maxAllowedPacket: "256M"          # Max packet size for replication & queries
+    backlog: 100                      # Listen backlog for connections
+    
+    # Buffer pools (critical for performance)
+    innodbBufferPoolSize: "1G"        # 50-80% of available RAM
+    innodbLogBufferSize: "16M"        # Larger buffer reduces disk I/O
+    
+    # Query cache (disabled by default in modern versions)
+    queryCacheSize: 0                 # Set to 0 to disable (can cause contention)
+    
+    # Thread handling
+    threadStackSize: "256K"           # Memory per thread
+    threadCacheSize: 100              # Cache threads for reuse
+    
+    # Sort and join buffers
+    sortBufferSize: "256K"            # Per-thread sort buffer
+    readRndBufferSize: "8M"           # Random read buffer
+    readBufferSize: "256K"            # Sequential read buffer
+    joinBufferSize: "256K"            # Join buffer per thread
+    
+    # Temporary tables
+    tmpTableSize: "32M"               # Max temp table in memory
+    maxHeapTableSize: "32M"           # Max heap table size
+    
+    # InnoDB specific
+    innodbAutoincLockMode: 2          # Lightweight locking for autoincrement
+    innodbFlushLogAtTrxCommit: 1      # CRITICAL: Sync every transaction (zero data loss)
+    innodbFlushMethod: "O_DIRECT"     # Direct I/O to avoid double buffering
+    innodbWriteIoThreads: 4           # Concurrent write threads
+    innodbReadIoThreads: 4            # Concurrent read threads
+    innodbPurgeThreads: 4             # Cleanup threads
+    
+    # Replication parameters (CRITICAL for zero data loss)
+    syncBinlog: 1                     # CRITICAL: Sync binlog every transaction
+    binlogFormat: "ROW"               # Row-based for safety
+    masterVerifyChecksum: 1           # Verify checksums on master
+    slaveSqlVerifyChecksum: 1         # Verify checksums on slave
+    
+    # Binary log
+    binlogExpireLogsSeconds: 604800   # Keep binlogs for 7 days (60*60*24*7)
+    
+    # Slow query logging (for optimization)
+    slowQueryLog: 1
+    slowQueryLogFile: "/var/log/mysql/slow.log"
+    longQueryTime: 2                  # Log queries > 2 seconds
+    logQueriesNotUsingIndexes: 0      # Don't log full table scans (noisy)
+    
+  # ===========================
+  # REPLICATION PARAMETERS (Zero Data Loss)
+  # ===========================
+  replication:
+    # Master crash safety
+    syncBinlog: 1                     # Prevent data loss on master crash
+    innodbFlushLogAtTrxCommit: 1      # Prevent uncommitted data loss
+    
+    # Slave crash safety
+    masterInfoRepository: "FILE"      # Store replication metadata
+    relayLogInfoRepository: "FILE"    # Store relay log metadata
+    
+    # Data consistency
+    masterVerifyChecksum: 1           # Checksum verification
+    slaveSqlVerifyChecksum: 1         # Verify all slave operations
+    binlogRowImage: "FULL"            # Log full row for safety
+    
+    # Replication safety
+    gtidStrictMode: 1                 # Enforce GTID consistency
+    logSlaveUpdates: 1                # Replicate to other replicas
+    replicaPreservesCommit: 1         # Preserve commit ordering
+
+# ===========================
+# MariaDB Helm Chart Values
+# ===========================
+# Edit these values to configure your deployment.
+# For sensitive values, use Kubernetes secrets.
+
+# Secrets configuration
+secrets:
+  rootPassword: "root123" 
+  appUser: "casdoor"
+  appPassword: "casdoor" 
+
+# Image pull secret configuration
+imagePullSecret:
+  enabled: "false" # Set to "true" to enable imagePullSecret
+  value: ecr-secret
+
+# Image pull policy
+imagePullPolicy: IfNotPresent
+
+# Namespace configuration
+Namespace:
+  enabled: "true" # Set to "true" to create namespace
+  name: casdoor
+
+# Storage class configuration
+storageClass:
+  name: "seagate-sc"
+  resources:
+    requests:
+      storage: "15Gi"
+
+# Service configuration
+
+services:
+  ReplicationInitJob: 
+    enabled: "true"
+    image: mysql:8.0
+
+# Controller configuration
+  MariaController:
+    enabled: "false"
+    runAsSidecar: "false"  # Set to "false" to run as separate Deployment
+    image: python:3.11-slim
+    replicas: 1
+    resources:
+      enabled: "true"
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "300m"
+        memory: "500Mi"
+
+# Unified MariaDB configuration (used by both Primary and Replicas)
+  Maria:
+    enabled: "true"
+    image: mariadb:11.4
+    port: 3306  # MariaDB port (configurable via MARIADB_PORT env variable)
+    replicas: 1  # Only applies to primary (replicas use mariadb.replicaCount)
+    resources:
+      enabled: "true"
+      requests:
+        cpu: "0.2"
+        memory: "1Gi"
+      limits:
+        cpu: "1"
+        memory: "2Gi"

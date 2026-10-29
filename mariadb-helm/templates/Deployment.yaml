@@ -1,0 +1,131 @@
+{{- if eq .Values.services.Maria.enabled "true" }}
+{{- if eq .Values.services.MariaController.enabled "true" }}
+{{- if eq .Values.services.MariaController.runAsSidecar "false" }}
+# NOTE: Running as separate Deployment (legacy mode). 
+# For HA controller, set runAsSidecar: "true" to run as sidecar with leader election.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb-ha-controller
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb-ha-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: mariadb-ha-controller
+    spec:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          python /app/mariadb_ha_controller.py
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: PRIMARY_HOST
+          value: "mariadb-0-0.mariadb-0.{{ $.Release.Namespace }}.svc.cluster.local"
+        - name: SERVICE_NAME
+          value: "mariadb"
+        - name: REPLICA_HOSTS
+          value: "{{- range $index := until (int .Values.mariadb.replicaCount) }}{{ if $index }},{{ end }}mariadb-{{ add $index 1 }}-0.mariadb-{{ add $index 1 }}.{{ .Release.Namespace }}.svc.cluster.local{{- end }}"
+        - name: REPLICA_PORTS
+          value: "{{- range $index := until (int .Values.mariadb.replicaCount) }}{{ if $index }},{{ end }}{{ .Values.services.Maria.port }}{{- end }}"
+        - name: PROMOTABLE_REPLICAS
+          value: "{{- range $index := until (int .Values.mariadb.replicaCount) }}{{ if $index }},{{ end }}{{ add $index 1 }}{{- end }}"
+        - name: MARIADB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mariadb-secret
+              key: root-password
+        - name: LEADER_ELECTION_ENABLED
+          value: "true"
+        - name: LEASE_NAME
+          value: "mariadb-ha-controller-lease"
+        image: {{ .Values.services.MariaController.image }}
+        imagePullPolicy: IfNotPresent
+        name: ha-controller
+        resources:
+          requests:
+            cpu: {{ .Values.services.MariaController.resources.requests.cpu | quote }}
+            memory: {{ .Values.services.MariaController.resources.requests.memory | quote }}
+          limits:
+            cpu: {{ .Values.services.MariaController.resources.limits.cpu | quote }}
+            memory: {{ .Values.services.MariaController.resources.limits.memory | quote }}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /deps
+          name: deps
+        - mountPath: /app/mariadb_ha_controller.py
+          name: script
+          subPath: mariadb_ha_controller.py
+        - mountPath: /data
+          name: state
+        readinessProbe:
+          exec:
+            command:
+              - python
+              - -c
+              - "import os; print(os.path.exists('/data/mariadb_ha_state.json'))"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+              - python
+              - -c
+              - "import os; print(os.path.exists('/data/mariadb_ha_state.json'))"
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      dnsPolicy: ClusterFirst
+      initContainers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          pip install pymysql kubernetes --target=/deps
+        image: python:3.11-slim
+        imagePullPolicy: IfNotPresent
+        name: install-deps
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /deps
+          name: deps
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: mariadb-ha-sa
+      serviceAccountName: mariadb-ha-sa
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: mariadb-ha-controller-script
+        name: script
+      - emptyDir: {}
+        name: deps
+      - name: state
+        emptyDir: {}
+{{- end }}
+{{- end }}
+{{- end }}

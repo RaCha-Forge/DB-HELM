@@ -1,0 +1,18 @@
+{{- if eq .Values.services.Maria.enabled "true" }}
+{{- if eq .Values.services.MariaController.enabled "true" }}
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mariadb-ha-rb
+  namespace: {{ .Values.Namespace.name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mariadb-ha-role
+subjects:
+- kind: ServiceAccount
+  name: mariadb-ha-sa
+  namespace: {{ .Values.Namespace.name }}
+{{- end }}
+{{- end }}
