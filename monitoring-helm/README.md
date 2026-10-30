@@ -1,7 +1,7 @@
 # monitoring
 
 One Helm chart for the whole Fyno observability stack on the on-prem VKS cluster.
-Turn a data source on in `values.yaml` and the chart wires it up end to end:
+Turn a data source on in your environment file (`values-<env>.yaml`) and the chart wires it up end to end:
 
 ```
 integrations.<x>.enabled: true
@@ -24,17 +24,30 @@ integrations.<x>.enabled: true
 | `integrations.mongodb.enabled` | mongodb-exporter | MongoDB |
 | `integrations.minio.enabled` | scrape jobs only (MinIO exposes its own metrics) | MinIO |
 | `integrations.redis.enabled` | Grafana Redis datasource only (no exporter) | Redis |
+| `integrations.apm.enabled` | OpenTelemetry Collector, Tempo, Tempo datasource, trace, span-metric, service-graph and runtime-metric scraping (see `docs/apm-instrumentation.md`) | APM (Overview, Application, Topology, Traces) |
 | `integrations.kubernetes.enabled` | kube-state-metrics, cAdvisor scrape, workload recording rules, least-privilege RBAC | Kubernetes |
 
 All switches are real booleans. `values.schema.json` rejects `"true"` strings and other typos before anything is applied.
 Every integration is **off by default**; the example file turns them on.
 
-## Quick start
+## Quick start: one values file per environment
+
+`values.yaml` holds the defaults and is never edited. Each environment has exactly one file that holds everything
+that differs there: registry, storage class, hosts, ports, switches and passwords.
 
 ```bash
-cp examples/values-fyno-prod.yaml my-values.yaml      # fill in the CHANGE_ME values, keep this file out of git
-helm upgrade --install monitoring . -n fyno-vks-prod -f my-values.yaml
+cp values-example.yaml values-prod.yaml        # new environment: fill in the CHANGE_ME values
+helm upgrade --install monitoring . -n <namespace> -f values-prod.yaml
 ```
+
+| File | Purpose | In git? |
+|---|---|---|
+| `values.yaml` | defaults for every setting, commented | yes, do not edit |
+| `values-example.yaml` | blank template to copy | yes |
+| `values-esaf-uat.yaml` | the ESAF UAT environment, including its passwords | no (ignored) |
+
+Environment files hold passwords, so `.gitignore` excludes every `values-*.yaml` except `values-example.yaml`.
+Preview a change with `--dry-run=server` (Helm 3.13+), or `--dry-run` on older Helm.
 
 Credentials are optional everywhere. Leave `user` / `password` empty and the chart omits the auth settings
 (no `--sasl.*` flags for Kafka, no `user=` / `password=` lines in `.my.cnf`, no credentials in the Mongo URI,
@@ -74,7 +87,7 @@ integrations:
 Deployment, StatefulSet and DaemonSet, CPU and memory against requests and limits, throttling, restarts, network, HPA state)
 in the **Kubernetes** dashboard folder (`fyno-workloads`). It renders:
 
-* `kube-state-metrics`, scoped to the release namespace through a namespaced Role plus a small cluster-scoped role for nodes;
+* `kube-state-metrics`, scoped to the release namespace through a namespaced Role, plus a small cluster-scoped role for nodes only when `integrations.kubernetes.clusterRbac` is true;
 * a Prometheus ServiceAccount with `nodes/metrics` read access, a `kubernetes-cadvisor` scrape job and a `kube-state-metrics` job;
 * the recording rules from `files/fyno-workloads-rules.yml`, mounted at `/etc/prometheus-rules`.
 
@@ -87,6 +100,36 @@ Keep them in an untracked values file.
 Turn something off by flipping its switch to `false`; its exporter, scrape job, datasource and dashboard all disappear on the next upgrade.
 To keep a data source but hide its dashboard, set `dashboard: false` on that block.
 
+## APM (traces and application metrics)
+
+`integrations.apm.enabled: true` deploys an OpenTelemetry Collector and Tempo (4-day trace retention), adds the Tempo datasource with
+trace-to-logs and trace-to-metrics links, and provisions four dashboards in the **APM** folder (Overview, Application, Topology, Traces). Applications opt in individually through the
+`otel-app-config` ConfigMap the chart creates. Everything, including the application side (package versions, MariaDB wrapper,
+env vars for the application chart), is in [`docs/apm-instrumentation.md`](docs/apm-instrumentation.md).
+
+## Dashboards: switch each one on or off
+
+Every dashboard has its own switch in `values.yaml`:
+
+```yaml
+dashboards:
+  redis:
+    redis: true                                     # "Redis"           (from the Grafana Redis plugin)
+    redis-streaming-v8: true                        # "Redis Streaming" (from the Grafana Redis plugin)
+    redis-timeseries-notifications: true
+    redis-timeseries-notifications-today-vs-yesterday: false   # hidden
+```
+
+* Format: `dashboards.<set>.<file name without .json>: true | false`. The set is the folder under `dashboards/` and the Grafana folder name.
+* To switch a whole folder off, use the integration switch instead (`integrations.redis.dashboard: false`).
+* **Adding your own dashboard:** put the JSON in `dashboards/<set>/` and run `helm upgrade`. Anything not listed under `dashboards:` is ON, so you only list a file to turn it off.
+  For a brand-new folder, add it to `monitoring.dashboardSets` and `monitoring.dashboardFolder` in `templates/_helpers.tpl`.
+* **Redis plugin dashboards:** "Redis" and "Redis Streaming" are read from the Grafana Redis plugin installed in the Grafana image (`integrations.redis.pluginDashboards`).
+  A small init container (`redis-plugin-dashboards`) copies them next to the chart's own Redis JSON files, so they always match the installed plugin version.
+  Check it with `kubectl -n <ns> logs grafana-0 -c redis-plugin-dashboards`. Set `pluginDashboards.enabled: false` to skip it.
+* If you imported these two dashboards by hand earlier, delete the UI copies once (Grafana refuses a provisioned dashboard whose UID already exists as a UI dashboard).
+* Provisioned dashboards are read-only; edit the JSON and upgrade.
+
 ## Taking over the running cluster (no downtime)
 
 Object names, selectors, PVC templates and storage sizes match the manifests that are live today,
@@ -94,8 +137,8 @@ so Helm can adopt them in place.
 
 ```bash
 ./scripts/adopt-existing.sh monitoring fyno-vks-prod      # annotates/labels existing objects for Helm; deletes nothing
-helm upgrade --install monitoring . -n fyno-vks-prod -f my-values.yaml --dry-run
-helm upgrade --install monitoring . -n fyno-vks-prod -f my-values.yaml
+helm upgrade --install monitoring . -n fyno-vks-prod -f values-prod.yaml --dry-run
+helm upgrade --install monitoring . -n fyno-vks-prod -f values-prod.yaml
 ```
 
 Things to know on the first upgrade:
@@ -105,7 +148,7 @@ Things to know on the first upgrade:
 * Dashboards are provisioned read-only. Change the JSON under `dashboards/` and upgrade; UI edits are not persisted.
 * Exporter Services and the Promtail ServiceAccount were not in the original manifests; the chart now owns them.
 * If the kubernetes integration was first applied by hand, `adopt-existing.sh` also adopts its objects, including the cluster-scoped RBAC.
-* The chart regenerates `prometheus-config` from values. Inline tokens or passwords in the live ConfigMap are not carried over, so supply them in your secrets file before upgrading.
+* The chart regenerates `prometheus-config` from values. Inline tokens or passwords in the live ConfigMap are not carried over, so put them in your environment file before upgrading.
 * PVCs are never touched (`volumeClaimTemplates` are identical to the running StatefulSets).
 
 ## Layout
@@ -116,6 +159,7 @@ monitoring/
 ├── values.yaml                 every switch and setting, commented
 ├── values.schema.json          type checking for values
 ├── dashboards/                 dashboard JSON, one folder per Grafana folder
+├── values-example.yaml         copy to values-<env>.yaml, one per environment
 ├── examples/values-fyno-prod.yaml
 ├── scripts/adopt-existing.sh
 └── templates/
@@ -129,13 +173,54 @@ monitoring/
 * Exporters need Prometheus (`prometheus.enabled`); Promtail needs Loki. Violations fail at render time with a clear message.
 * A required host is checked per integration (`kafka.host`, `mariadb.host`, `mongodb.hosts`, `redis.host`, `minio.sites`).
 * Pods restart automatically when their ConfigMap or Secret content changes (checksum annotations).
-* Secrets are generated from values. For GitOps, keep credentials in an untracked file and pass it last: `-f values.yaml -f secrets.yaml`.
+* Secrets are generated from values. For GitOps, keep the environment file out of git (the default) or use `grafana.admin.existingSecret` for Grafana.
 
 ## Verify
 
 ```bash
-helm lint . -f examples/values-fyno-prod.yaml
-helm template monitoring . -n fyno-vks-prod -f my-values.yaml | kubectl apply --dry-run=server -f -
+helm lint . -f values-example.yaml
+helm template monitoring . -n fyno-vks-prod -f values-prod.yaml | kubectl apply --dry-run=server -f -
 kubectl -n fyno-vks-prod get pods
 # Prometheus targets: kubectl -n fyno-vks-prod port-forward svc/prometheus 9090  ->  /targets
 ```
+
+
+## Namespace-only mode (no cluster-wide rights)
+
+Set under `integrations.kubernetes`:
+
+| Access you have | clusterRbac | cadvisor.enabled | kubeStateMetrics.nodeMetrics |
+|---|---|---|---|
+| Cluster-admin | true | true | true |
+| Namespace only | false | false | false |
+
+With the namespace-only settings no ClusterRole or ClusterRoleBinding is rendered. You still get replicas, restarts,
+requests/limits, HPAs, services/endpoints and all other integrations; per-pod CPU/memory/network (cAdvisor) and node
+state are not collected. A cluster admin can later run `kubectl apply -f files/kubernetes-cluster-rbac.yaml` and flip
+the three flags to true.
+
+
+## Namespace-only mode (no cluster-wide rights)
+
+Three options under `integrations.kubernetes` decide whether anything cluster-wide is created:
+
+| Access you have | `clusterRbac` | `cadvisor.enabled` | `kubeStateMetrics.nodeMetrics` |
+|---|---|---|---|
+| Cluster-admin | true | true | true |
+| Namespace only | false | false | false |
+
+Namespace-only creates no ClusterRole or ClusterRoleBinding. You keep replicas, restarts, requests/limits, HPAs and
+services; you lose per-pod CPU/memory/network and node state. A cluster admin can later run
+`kubectl apply -f files/kubernetes-cluster-rbac.yaml` and you flip the three options to true.
+
+## Redis plugin and extra Redis instances
+
+* The Grafana image can contain the Redis plugin. The data volume would hide it, so an init container copies the
+  image's plugins to a scratch volume (`grafana.bundledPlugins`, on by default).
+* `integrations.redis` is the main instance (datasource "Redis"). More servers go under `integrations.redis.instances`
+  (one entry each); every instance shows up in the dashboard's datasource drop-down.
+
+## Promtail and PodSecurity
+
+Promtail reads node log files (hostPath). If the cluster default level is `baseline`, allow it for the namespace once:
+`kubectl label ns <namespace> pod-security.kubernetes.io/enforce=privileged --overwrite`.

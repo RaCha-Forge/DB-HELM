@@ -1,0 +1,2508 @@
+{
+  "uid": "apm-overview",
+  "title": "APM \u00b7 Overview",
+  "description": "Application performance from OpenTelemetry traces: all applications at a glance, with links to each application, topology and trace explorer.",
+  "tags": [
+    "apm",
+    "traces",
+    "fyno"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "APM",
+      "tags": [
+        "apm"
+      ],
+      "asDropdown": false,
+      "includeVars": true,
+      "keepTime": true,
+      "icon": "external link",
+      "targetBlank": false,
+      "tooltip": "",
+      "url": ""
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "application",
+        "label": "Application",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values({__name__=~\"traces_span_metrics_calls_total|nodejs_eventloop_utilization_ratio\",service_name!=\"\"}, service_name)",
+          "refId": "application"
+        },
+        "definition": "label_values({__name__=~\"traces_span_metrics_calls_total|nodejs_eventloop_utilization_ratio\",service_name!=\"\"}, service_name)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "sort": 1,
+        "hide": 0,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "slow",
+        "label": "Slow trace threshold",
+        "type": "custom",
+        "query": "500ms : 500ms,1s : 1s,2s : 2s,5s : 5s",
+        "current": {
+          "selected": true,
+          "text": "1s",
+          "value": "1s"
+        },
+        "options": [
+          {
+            "selected": false,
+            "text": "500ms",
+            "value": "500ms"
+          },
+          {
+            "selected": true,
+            "text": "1s",
+            "value": "1s"
+          },
+          {
+            "selected": false,
+            "text": "2s",
+            "value": "2s"
+          },
+          {
+            "selected": false,
+            "text": "5s",
+            "value": "5s"
+          }
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Every application that runs the OpenTelemetry agent is listed here.**  \n**Web** applications answer HTTP requests: Req/s, errors and latency are filled in.  **Worker** applications (queue / job consumers) receive no HTTP requests, so those columns show **\u2013**; for them look at *Calls out/s* (database, cache and HTTP calls they make), *Event loop* and *Heap*.  A web application also shows **\u2013** until it has served a request in the selected time range."
+      },
+      "transparent": false,
+      "id": 1
+    },
+    {
+      "id": 2,
+      "type": "row",
+      "title": "Overview (all selected applications)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Requests / sec",
+      "description": "Incoming HTTP requests (server spans) per second, all selected applications.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__rate_interval]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Error rate",
+      "description": "Share of incoming requests that ended in an error (HTTP 5xx or an exception).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * sum(rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\",status_code=\"STATUS_CODE_ERROR\"}[$__rate_interval])) / sum(rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__rate_interval]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "id": 4
+    },
+    {
+      "type": "stat",
+      "title": "Avg latency",
+      "description": "Average request duration.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(traces_span_metrics_duration_milliseconds_sum{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__rate_interval])) / sum(rate(traces_span_metrics_duration_milliseconds_count{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__rate_interval]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "id": 5
+    },
+    {
+      "type": "stat",
+      "title": "p95 latency",
+      "description": "95% of requests are faster than this.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_span_metrics_duration_milliseconds_bucket{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__rate_interval])))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 1500
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "id": 6
+    },
+    {
+      "type": "stat",
+      "title": "Calls out / sec",
+      "description": "Outgoing calls per second (databases, cache, HTTP). This is the activity of worker applications.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\",service_name=~\"$application\"}[$__rate_interval]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "id": 7
+    },
+    {
+      "type": "stat",
+      "title": "Applications reporting",
+      "description": "Applications currently sending traces or runtime metrics (web and worker).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(count by (service_name) ({__name__=~\"traces_span_metrics_calls_total|nodejs_eventloop_utilization_ratio\",service_name=~\"$application\"}))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "id": 8
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Applications  (click a name to open its dashboard)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Applications (selected time range)",
+      "description": "One row per application that sends telemetry. Click the name to open its dashboard. A dash (\u2013) means the application had no such activity in the selected range (a worker has no HTTP requests).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count by (service_name) (count by (service_name, k8s_pod_name) ({__name__=~\"traces_span_metrics_calls_total|nodejs_eventloop_utilization_ratio\",service_name=~\"$application\"}))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__range]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "(100 * sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\",status_code=\"STATUS_CODE_ERROR\"}[$__range])) / sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__range]))) or (0 * sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__range])))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service_name) (rate(traces_span_metrics_duration_milliseconds_sum{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__range])) / sum by (service_name) (rate(traces_span_metrics_duration_milliseconds_count{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__range]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, service_name) (rate(traces_span_metrics_duration_milliseconds_bucket{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__range])))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "F",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\",service_name=~\"$application\"}[$__range]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "G",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "avg by (service_name) (nodejs_eventloop_utilization_ratio{service_name=~\"$application\"})",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "H",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service_name) (v8js_memory_heap_used_bytes{service_name=~\"$application\"})",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "service_name": "Application",
+              "Value #A": "Instances",
+              "Value #B": "Req/s",
+              "Value #C": "Errors %",
+              "Value #D": "Avg (ms)",
+              "Value #E": "p95 (ms)",
+              "Value #F": "Calls out/s",
+              "Value #G": "Event loop",
+              "Value #H": "Heap"
+            },
+            "indexByName": {
+              "Application": 0,
+              "Instances": 1,
+              "Req/s": 2,
+              "Errors %": 3,
+              "Avg (ms)": 4,
+              "p95 (ms)": 5,
+              "Calls out/s": 6,
+              "Event loop": 7,
+              "Heap": 8
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true
+          },
+          "noValue": "\u2013"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Application"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open application dashboard",
+                    "url": "/d/apm-application/apm-application?var-application=${__value.raw}&${__url_time_range}"
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Instances"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Req/s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Errors %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Avg (ms)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95 (ms)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Calls out/s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Event loop"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Heap"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Application",
+            "desc": false
+          }
+        ]
+      },
+      "id": 10
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Per application",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests / sec",
+      "description": "Incoming requests per second.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__rate_interval]))",
+          "legendFormat": "{{service_name}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12
+    },
+    {
+      "type": "timeseries",
+      "title": "Error rate",
+      "description": "Percentage of failed requests.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\",status_code=\"STATUS_CODE_ERROR\"}[$__rate_interval])) / sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__rate_interval]))",
+          "legendFormat": "{{service_name}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "noValue": "0",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 latency",
+      "description": "95th percentile request duration.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, service_name) (rate(traces_span_metrics_duration_milliseconds_bucket{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__rate_interval])))",
+          "legendFormat": "{{service_name}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 14
+    },
+    {
+      "type": "timeseries",
+      "title": "Responses by HTTP status",
+      "description": "Requests per second by HTTP status code.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (http_response_status_code) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__rate_interval]))",
+          "legendFormat": "{{http_response_status_code}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 40,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 15
+    },
+    {
+      "id": 16,
+      "type": "row",
+      "title": "Workers and runtime  (every application)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Calls out / sec",
+      "description": "Outgoing calls (database, cache, HTTP) per second. Shows the activity of worker applications.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 35
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\",service_name=~\"$application\"}[$__rate_interval]))",
+          "legendFormat": "{{service_name}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 40,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 17
+    },
+    {
+      "type": "timeseries",
+      "title": "Event loop utilization",
+      "description": "Share of time the Node.js event loop is busy. Close to 100% = CPU-bound.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 35
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "avg by (service_name) (nodejs_eventloop_utilization_ratio{service_name=~\"$application\"})",
+          "legendFormat": "{{service_name}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "noValue": "0",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 18
+    },
+    {
+      "type": "timeseries",
+      "title": "Heap used",
+      "description": "V8 heap per application. A steady climb = memory leak.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 35
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service_name) (v8js_memory_heap_used_bytes{service_name=~\"$application\"})",
+          "legendFormat": "{{service_name}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 19
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Endpoints",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Slowest endpoints (p95)",
+      "description": "Top 15 endpoints by p95 latency in the selected range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(15, histogram_quantile(0.95, sum by (le, service_name, http_route) (rate(traces_span_metrics_duration_milliseconds_bucket{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\",http_route!=\"\"}[$__range]))))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service_name, http_route) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\",http_route!=\"\"}[$__range]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "service_name": "Application",
+              "http_route": "Route",
+              "Value #A": "p95 (ms)",
+              "Value #B": "Req/s"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95 (ms)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient",
+                  "valueDisplayMode": "text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Req/s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Application"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open application dashboard",
+                    "url": "/d/apm-application/apm-application?var-application=${__value.raw}&${__url_time_range}"
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "p95 (ms)",
+            "desc": true
+          }
+        ]
+      },
+      "id": 21
+    },
+    {
+      "type": "table",
+      "title": "Endpoints with most errors",
+      "description": "Top 15 endpoints by number of failed requests in the selected range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "topk(15, sum by (service_name, http_route) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\",http_route!=\"\",status_code=\"STATUS_CODE_ERROR\"}[$__range])))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (service_name, http_route) (increase(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\",http_route!=\"\"}[$__range]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "service_name": "Application",
+              "http_route": "Route",
+              "Value #A": "Errors",
+              "Value #B": "Requests"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Errors"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Requests"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Application"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open application dashboard",
+                    "url": "/d/apm-application/apm-application?var-application=${__value.raw}&${__url_time_range}"
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Errors",
+            "desc": true
+          }
+        ]
+      },
+      "id": 22
+    },
+    {
+      "id": 23,
+      "type": "row",
+      "title": "Latency distribution (click a dot to open its trace)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
+      "panels": []
+    },
+    {
+      "type": "heatmap",
+      "title": "Request duration heatmap",
+      "description": "Each cell is a latency bucket. Dots are sample requests: click one to open its trace in Tempo.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 54
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (le) (rate(traces_span_metrics_duration_milliseconds_bucket{span_kind=\"SPAN_KIND_SERVER\",service_name=~\"$application\"}[$__rate_interval]))",
+          "legendFormat": "{{le}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false,
+          "format": "heatmap",
+          "exemplar": true
+        }
+      ],
+      "options": {
+        "calculate": false,
+        "yAxis": {
+          "unit": "ms",
+          "axisPlacement": "left"
+        },
+        "color": {
+          "mode": "scheme",
+          "scheme": "Spectral",
+          "scale": "exponential",
+          "exponent": 0.5,
+          "steps": 64
+        },
+        "cellGap": 1,
+        "exemplars": {
+          "color": "rgba(255,255,255,0.7)"
+        },
+        "tooltip": {
+          "mode": "single",
+          "yHistogram": false
+        },
+        "legend": {
+          "show": true
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "id": 24
+    },
+    {
+      "id": 25,
+      "type": "row",
+      "title": "Traces  (click a Trace ID to open it in the Trace explorer)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 63
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "Recent error traces",
+      "description": "Latest traces that contain an error.",
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 64
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ status = error && resource.service.name =~ \"${application:regex}\" }",
+          "limit": 20,
+          "tableType": "traces",
+          "filters": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "nested": true
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Trace ID"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open in Trace explorer",
+                    "url": "/d/apm-traces/apm-traces?var-traceid=${__value.raw}&${__url_time_range}"
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 500
+                    },
+                    {
+                      "color": "red",
+                      "value": 1500
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Start time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 165
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Service"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Start time",
+            "desc": true
+          }
+        ]
+      },
+      "id": 26
+    },
+    {
+      "type": "table",
+      "title": "Slow traces",
+      "description": "Latest traces slower than the threshold chosen at the top.",
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "queryType": "traceql",
+          "query": "{ duration > $slow && resource.service.name =~ \"${application:regex}\" }",
+          "limit": 20,
+          "tableType": "traces",
+          "filters": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "nested": true
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Trace ID"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open in Trace explorer",
+                    "url": "/d/apm-traces/apm-traces?var-traceid=${__value.raw}&${__url_time_range}"
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 500
+                    },
+                    {
+                      "color": "red",
+                      "value": 1500
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Start time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 165
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Service"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Start time",
+            "desc": true
+          }
+        ]
+      },
+      "id": 27
+    },
+    {
+      "id": 28,
+      "type": "row",
+      "title": "APM pipeline health",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 73
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Spans received / sec (Collector)",
+      "description": "Spans arriving from applications. Refused > 0 means the Collector is overloaded.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 74
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(otelcol_receiver_accepted_spans[5m]))",
+          "legendFormat": "accepted",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(otelcol_receiver_refused_spans[5m])) or vector(0)",
+          "legendFormat": "refused",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 29
+    },
+    {
+      "type": "timeseries",
+      "title": "Spans sent to Tempo / sec",
+      "description": "Sampled spans written to Tempo. Failed > 0 means Tempo is unreachable.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 74
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(otelcol_exporter_sent_spans{exporter=~\"otlp.*\"}[5m]))",
+          "legendFormat": "sent",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(otelcol_exporter_send_failed_spans[5m])) or vector(0)",
+          "legendFormat": "failed",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 30
+    },
+    {
+      "type": "timeseries",
+      "title": "Collector memory",
+      "description": "Collector resident memory; tail sampling holds traces in memory.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 74
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "otelcol_process_memory_rss",
+          "legendFormat": "rss",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 31
+    },
+    {
+      "type": "timeseries",
+      "title": "Traces kept by sampling",
+      "description": "Traces kept per sampling policy (errors, slow, baseline).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 81
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (policy) (rate(otelcol_processor_tail_sampling_count_traces_sampled{sampled=\"true\"}[5m]))",
+          "legendFormat": "{{policy}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 32
+    },
+    {
+      "type": "timeseries",
+      "title": "Tempo spans ingested / sec",
+      "description": "Spans received by Tempo.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 81
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(tempo_distributor_spans_received_total[5m]))",
+          "legendFormat": "spans",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 33
+    },
+    {
+      "type": "timeseries",
+      "title": "Live traces in Tempo ingester",
+      "description": "Traces currently being assembled in Tempo.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 81
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "tempo_ingester_live_traces",
+          "legendFormat": "live traces",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 34
+    }
+  ]
+}

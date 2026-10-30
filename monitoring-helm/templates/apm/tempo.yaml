@@ -1,0 +1,97 @@
+{{- if .Values.integrations.apm.enabled }}
+{{- $a := .Values.integrations.apm }}
+{{- $t := $a.tempo }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tempo
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "tempo" "component" "apm") | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: tempo
+  podManagementPolicy: OrderedReady
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      {{- include "monitoring.selector" "tempo" | nindent 6 }}
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        {{- include "monitoring.labels" (dict "root" . "name" "tempo" "component" "apm") | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/apm/tempo-configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "monitoring.pullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        {{- toYaml $t.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: tempo
+          image: {{ include "monitoring.image" (dict "root" . "image" $t.image) }}
+          imagePullPolicy: {{ $t.image.pullPolicy }}
+          args: ["-config.file=/etc/tempo/tempo.yaml"]
+          ports:
+            - { name: http, containerPort: 3200 }
+            - { name: otlp-grpc, containerPort: 4317 }
+          readinessProbe:
+            httpGet: { path: /ready, port: http }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /ready, port: http }
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            {{- toYaml $t.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - name: tempo-data
+              mountPath: /var/tempo
+            - name: config
+              mountPath: /etc/tempo
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: tempo-config
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: tempo-data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.global.storageClassName }}
+        volumeMode: Filesystem
+        resources:
+          requests:
+            storage: {{ $t.persistence.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "tempo" "component" "apm") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "monitoring.selector" "tempo" | nindent 4 }}
+  ports:
+    - { name: http, port: 3200, targetPort: http }
+    - { name: otlp-grpc, port: 4317, targetPort: otlp-grpc }
+{{- end }}

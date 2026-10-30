@@ -57,10 +57,10 @@ for obj in "${CLUSTER_OBJECTS[@]}"; do adopt "$obj"; done
 cat <<MSG
 
 Done. Next:
-  helm upgrade --install $RELEASE . -n $NS -f values.yaml -f secrets.yaml --dry-run   # review
-  helm upgrade --install $RELEASE . -n $NS -f values.yaml -f secrets.yaml
+  helm upgrade --install $RELEASE . -n $NS -f values-<env>.yaml --dry-run   # review
+  helm upgrade --install $RELEASE . -n $NS -f values-<env>.yaml
 
-Before the first upgrade, put the real values in your secrets file - the chart
+Before the first upgrade, put the real values (including passwords) in your values-<env>.yaml - the chart
 regenerates prometheus-config, so MinIO tokens, Mongo / MariaDB credentials etc.
 must be in values (they are read from values, not from the live ConfigMap).
 

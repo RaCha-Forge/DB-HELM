@@ -1,0 +1,4 @@
+# environment files hold passwords
+values-*.yaml
+!values-example.yaml
+secrets*.yaml

@@ -1,0 +1,22 @@
+{{- if .Values.integrations.apm.enabled }}
+{{- /*
+  Environment variables for applications that have APM turned on.
+  In the application chart: envFrom -> configMapRef -> name: otel-app-config
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-app-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "otel-app-config" "component" "apm") | nindent 4 }}
+data:
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ printf "http://otel-collector.%s.svc.cluster.local:4318" .Release.Namespace | quote }}
+  {{- range $k, $v := .Values.integrations.apm.clientConfig }}
+  {{- if and (eq $k "OTEL_METRICS_EXPORTER") (not $.Values.integrations.apm.runtimeMetrics.enabled) }}
+  {{ $k }}: "none"   # runtimeMetrics.enabled=false: the Collector has no metrics pipeline
+  {{- else }}
+  {{ $k }}: {{ $v | toString | quote }}
+  {{- end }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,51 @@
+{{- if .Values.integrations.apm.enabled }}
+{{- $a := .Values.integrations.apm }}
+{{- $t := $a.tempo }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "tempo" "component" "apm") | nindent 4 }}
+data:
+  tempo.yaml: |
+    # Single-binary Tempo, local disk storage, {{ $a.retention }} retention.
+    stream_over_http_enabled: true
+    server:
+      http_listen_port: 3200
+      log_level: info
+    distributor:
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:4317
+    ingester:
+      max_block_duration: 5m
+    query_frontend:
+      search:
+        # The Trace explorer lists every span of a trace (default limit is 100 spans per trace).
+        max_spans_per_span_set: 1000
+    compactor:
+      compaction:
+        block_retention: {{ $a.retention }}
+    # Same retention for the newer backend components, so no code path falls back to the 14d default.
+    backend_scheduler:
+      provider:
+        compaction:
+          compaction:
+            block_retention: {{ $a.retention }}
+    backend_worker:
+      compaction:
+        block_retention: {{ $a.retention }}
+    storage:
+      trace:
+        backend: local
+        wal:
+          path: /var/tempo/wal
+        local:
+          path: /var/tempo/blocks
+    usage_report:
+      reporting_enabled: false
+{{- end }}

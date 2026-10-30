@@ -1,6 +1,7 @@
 {{- if .Values.grafana.enabled }}
 {{- $g := .Values.grafana }}
 {{- $sets := compact (splitList "," (include "monitoring.dashboardSets" .)) }}
+{{- $pluginFiles := include "monitoring.redisPluginFiles" . }}
 {{- $adminSecret := default "grafana-admin" $g.admin.existingSecret }}
 apiVersion: apps/v1
 kind: StatefulSet
@@ -27,12 +28,95 @@ spec:
         {{- include "monitoring.labels" (dict "root" . "name" "grafana" "component" "visualization") | nindent 8 }}
       annotations:
         checksum/datasources: {{ include (print $.Template.BasePath "/grafana/secret-datasources.yaml") . | sha256sum }}
+        {{- if $pluginFiles }}
+        # the Redis folder is assembled once at pod start, so restart Grafana when its content changes
+        checksum/dashboards-redis: {{ printf "%s%s" (include (print $.Template.BasePath "/grafana/configmap-dashboards.yaml") .) $pluginFiles | sha256sum }}
+        {{- end }}
         checksum/admin: {{ include (print $.Template.BasePath "/grafana/secret-admin.yaml") . | sha256sum }}
     spec:
       {{- include "monitoring.pullSecrets" . | nindent 6 }}
       securityContext:
         {{- toYaml $g.podSecurityContext | nindent 8 }}
       terminationGracePeriodSeconds: 30
+      {{- if or $pluginFiles $g.bundledPlugins.enabled }}
+      initContainers:
+      {{- if $g.bundledPlugins.enabled }}
+        # The data volume is mounted over /var/lib/grafana, which hides any plugin the image keeps under
+        # /var/lib/grafana/plugins (the Redis datasource, ...). This copies the plugins that ship INSIDE THE IMAGE
+        # into a scratch volume that the Grafana container mounts on top, so the plugin is always the one in the
+        # image and is never hidden or overwritten by the volume.
+        - name: copy-image-plugins
+          image: {{ include "monitoring.image" (dict "root" . "image" $g.image) }}
+          imagePullPolicy: {{ $g.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -u
+              src=""
+              for base in {{ with $g.bundledPlugins.sourceDir }}{{ . | quote }}{{ end }} "${GF_PATHS_PLUGINS:-}" /var/lib/grafana/plugins /usr/share/grafana/plugins-bundled /usr/share/grafana/data/plugins; do
+                if [ -n "$base" ] && [ -d "$base" ] && [ -n "$(ls -A "$base" 2>/dev/null)" ]; then src="$base"; break; fi
+              done
+              if [ -z "$src" ]; then
+                echo "WARNING: no plugins directory with content found in the image - nothing copied"
+                exit 0
+              fi
+              cp -a "$src"/. /plugins-out/
+              echo "copied image plugins from $src:"; ls /plugins-out
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { memory: 256Mi }
+          securityContext:
+            {{- toYaml $g.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: grafana-plugins
+              mountPath: /plugins-out
+      {{- end }}
+      {{- if $pluginFiles }}
+        # Builds the Redis dashboard folder: this chart's own Redis JSON files plus the
+        # dashboards that ship inside the Grafana Redis plugin (read from the installed plugin,
+        # so they always match the plugin version in the image).
+        - name: redis-plugin-dashboards
+          image: {{ include "monitoring.image" (dict "root" . "image" $g.image) }}
+          imagePullPolicy: {{ $g.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -u
+              PLUGIN="$PLUGIN_ID"
+              cp /chart-dashboards/*.json /out/ 2>/dev/null || true
+              dir=""
+              for base in "${GF_PATHS_PLUGINS:-}" /var/lib/grafana/plugins /usr/share/grafana/plugins-bundled /grafana-data/plugins; do
+                [ -n "$base" ] && [ -d "$base/$PLUGIN/dashboards" ] && dir="$base/$PLUGIN/dashboards" && break
+              done
+              if [ -z "$dir" ]; then
+                echo "WARNING: plugin '$PLUGIN' dashboards folder not found - plugin dashboards skipped"
+                exit 0
+              fi
+              for f in $PLUGIN_FILES; do
+                if [ -f "$dir/$f.json" ]; then cp "$dir/$f.json" "/out/$f.json" && echo "provisioned plugin dashboard: $f"
+                else echo "WARNING: $dir/$f.json not found - skipped"; fi
+              done
+          env:
+            - name: PLUGIN_ID
+              value: {{ .Values.integrations.redis.pluginDashboards.pluginId | quote }}
+            - name: PLUGIN_FILES
+              value: {{ $pluginFiles | quote }}
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { memory: 64Mi }
+          securityContext:
+            {{- toYaml $g.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: dash-redis
+              mountPath: /chart-dashboards
+              readOnly: true
+            - name: dash-redis-out
+              mountPath: /out
+            - name: grafana-data
+              mountPath: /grafana-data
+              readOnly: true
+      {{- end }}
+      {{- end }}
       containers:
         - name: grafana
           image: {{ include "monitoring.image" (dict "root" . "image" $g.image) }}
@@ -67,6 +151,10 @@ spec:
           volumeMounts:
             - name: grafana-data
               mountPath: /var/lib/grafana
+            {{- if $g.bundledPlugins.enabled }}
+            - name: grafana-plugins
+              mountPath: /var/lib/grafana/plugins
+            {{- end }}
             - name: datasources
               mountPath: /etc/grafana/provisioning/datasources
               readOnly: true
@@ -76,11 +164,21 @@ spec:
               readOnly: true
             {{- end }}
             {{- range $sets }}
+            {{- if and (eq . "redis") $pluginFiles }}
+            - name: dash-redis-out
+              mountPath: /var/lib/grafana-dashboards/{{ include "monitoring.dashboardFolder" . }}
+              readOnly: true
+            {{- else }}
             - name: dash-{{ . }}
               mountPath: /var/lib/grafana-dashboards/{{ include "monitoring.dashboardFolder" . }}
               readOnly: true
             {{- end }}
+            {{- end }}
       volumes:
+        {{- if $g.bundledPlugins.enabled }}
+        - name: grafana-plugins
+          emptyDir: {}
+        {{- end }}
         - name: datasources
           secret:
             secretName: grafana-datasources
@@ -93,6 +191,10 @@ spec:
         - name: dash-{{ . }}
           configMap:
             name: grafana-dashboards-{{ . }}
+        {{- end }}
+        {{- if $pluginFiles }}
+        - name: dash-redis-out
+          emptyDir: {}
         {{- end }}
   volumeClaimTemplates:
     - apiVersion: v1

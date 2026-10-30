@@ -1,0 +1,179 @@
+{{- if .Values.integrations.apm.enabled }}
+{{- $a := .Values.integrations.apm }}
+{{- $c := $a.collector }}
+{{- $sp := $a.sampling }}
+{{- $perPod := $a.spanMetrics.perInstance }}
+{{- $rt := $a.runtimeMetrics.enabled }}
+{{- $sg := $a.serviceGraph.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "otel-collector" "component" "apm") | nindent 4 }}
+data:
+  config.yaml: |
+    # Applications -> OTLP -> (span metrics for Prometheus) + (sampled traces for Tempo)
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+      batch:
+        send_batch_size: 8192
+        timeout: 5s
+      # Span metrics only need request-level spans. Dropping in-process spans (express middleware,
+      # etc.) here keeps Prometheus series low; the traces in Tempo still contain every span.
+      filter/spanmetrics:
+        error_mode: ignore
+        traces:
+          span:
+            - kind == SPAN_KIND_INTERNAL
+      # Normalises span attributes before span metrics / service graph are computed:
+      #  - newer instrumentations send db.system.name (redis, ...), older ones db.system: use one name.
+      {{- if $perPod }}
+      #  - copies the pod name from the resource onto the span, so request metrics can be split per pod.
+      {{- end }}
+      transform/spanattrs:
+        error_mode: ignore
+        trace_statements:
+          - context: span
+            statements:
+              - set(span.attributes["db.system"], span.attributes["db.system.name"]) where span.attributes["db.system"] == nil and span.attributes["db.system.name"] != nil
+              {{- if $perPod }}
+              - set(span.attributes["k8s.pod.name"], resource.attributes["k8s.pod.name"]) where resource.attributes["k8s.pod.name"] != nil
+              {{- end }}
+      {{- if $rt }}
+      # Keep only Node.js runtime metrics (event loop, heap, GC); request metrics already come from spans.
+      filter/runtime:
+        error_mode: ignore
+        metrics:
+          metric:
+            - not(IsMatch(name, "^(nodejs|v8js)\\."))
+      # Copy resource attributes onto the data points so they become Prometheus labels.
+      transform/runtime:
+        error_mode: ignore
+        metric_statements:
+          - context: datapoint
+            statements:
+              - set(datapoint.attributes["service_name"], resource.attributes["service.name"])
+              - set(datapoint.attributes["k8s_namespace_name"], resource.attributes["k8s.namespace.name"]) where resource.attributes["k8s.namespace.name"] != nil
+              - set(datapoint.attributes["k8s_pod_name"], resource.attributes["k8s.pod.name"]) where resource.attributes["k8s.pod.name"] != nil
+      {{- end }}
+      {{- if $sp.enabled }}
+      # Keep every error and every slow trace, plus a percentage of the rest.
+      tail_sampling:
+        decision_wait: {{ $sp.decisionWait }}
+        num_traces: {{ $sp.maxTraces }}
+        policies:
+          - name: errors
+            type: status_code
+            status_code: { status_codes: [ERROR] }
+          - name: slow
+            type: latency
+            latency: { threshold_ms: {{ $sp.slowThresholdMs }} }
+          - name: baseline
+            type: probabilistic
+            probabilistic: { sampling_percentage: {{ $sp.normalPercent }} }
+      {{- end }}
+
+    connectors:
+      # Request rate / errors / latency are computed from 100% of spans, before sampling.
+      span_metrics:
+        histogram:
+          explicit:
+            buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2500ms, 5s, 10s]
+        dimensions:
+          - name: http.route
+          - name: http.method
+          - name: http.request.method
+          - name: http.status_code
+          - name: http.response.status_code
+          - name: db.system
+          - name: db.system.name
+          - name: db.name
+          - name: server.address
+          - name: net.peer.name
+          {{- if $perPod }}
+          - name: k8s.pod.name
+          {{- end }}
+        exemplars:
+          enabled: true
+        # Pods of a service are merged unless spanMetrics.perInstance adds the k8s.pod.name dimension.
+        resource_metrics_key_attributes:
+          - service.name
+        metrics_flush_interval: 15s
+        metrics_expiration: 5m
+      {{- if $sg }}
+      # Who calls whom: client span + server span pairs become edges (service -> service, service -> database).
+      service_graph:
+        latency_histogram_buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2500ms, 5s, 10s]
+        store:
+          ttl: 10s
+          max_items: 20000
+        # Databases show up as a node named after the database type (redis, mariadb, mongodb).
+        database_name_attributes: [db.system]
+        virtual_node_peer_attributes: [db.system, peer.service, server.address, net.peer.name]
+        virtual_node_extra_label: true
+      {{- end }}
+      forward/sampled: {}
+      forward/metrics: {}
+
+    exporters:
+      otlp_grpc/tempo:
+        endpoint: tempo.{{ .Release.Namespace }}.svc.cluster.local:4317
+        tls:
+          insecure: true
+        sending_queue:
+          queue_size: 5000
+      prometheus:
+        endpoint: 0.0.0.0:8889
+        enable_open_metrics: true
+
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+
+    service:
+      extensions: [health_check]
+      telemetry:
+        metrics:
+          level: normal
+          readers:
+            - pull:
+                exporter:
+                  prometheus:
+                    host: 0.0.0.0
+                    port: 8888
+      pipelines:
+        traces/in:
+          receivers: [otlp]
+          processors: [memory_limiter]
+          exporters: [forward/metrics, forward/sampled]
+        traces/metrics:
+          receivers: [forward/metrics]
+          processors: [filter/spanmetrics, transform/spanattrs]
+          exporters: [span_metrics{{ if $sg }}, service_graph{{ end }}]
+        traces/sampled:
+          receivers: [forward/sampled]
+          processors: [{{ if $sp.enabled }}tail_sampling, {{ end }}batch]
+          exporters: [otlp_grpc/tempo]
+        metrics/spanmetrics:
+          receivers: [span_metrics{{ if $sg }}, service_graph{{ end }}]
+          exporters: [prometheus]
+        {{- if $rt }}
+        metrics/runtime:
+          receivers: [otlp]
+          processors: [memory_limiter, filter/runtime, transform/runtime, batch]
+          exporters: [prometheus]
+        {{- end }}
+{{- end }}

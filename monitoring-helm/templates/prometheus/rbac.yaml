@@ -11,6 +11,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "monitoring.labels" (dict "root" . "name" "prometheus" "component" "metrics") | nindent 4 }}
+{{- if .Values.integrations.kubernetes.clusterRbac }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -44,4 +45,5 @@ subjects:
   - kind: ServiceAccount
     name: prometheus
     namespace: {{ .Release.Namespace }}
+{{- end }}
 {{- end }}

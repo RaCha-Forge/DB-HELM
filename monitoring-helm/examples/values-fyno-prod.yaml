@@ -53,3 +53,7 @@ integrations:
     enabled: true        # pods / workloads / services dashboard (kube-state-metrics + cAdvisor)
     cadvisor:
       mode: kubelet      # switch to apiserver-proxy if pods cannot reach node port 10250
+
+  apm:
+    enabled: true        # OpenTelemetry Collector + Tempo (mirror both images first, see docs/apm-instrumentation.md)
+    retention: 96h       # trace retention (4 days)

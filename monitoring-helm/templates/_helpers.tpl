@@ -54,6 +54,9 @@ imagePullSecrets:
 {{- define "monitoring.prometheusUrl" -}}
 {{- printf "http://prometheus.%s.svc.cluster.local:9090" .Release.Namespace -}}
 {{- end -}}
+{{- define "monitoring.tempoUrl" -}}
+{{- printf "http://tempo.%s.svc.cluster.local:3200" .Release.Namespace -}}
+{{- end -}}
 {{- define "monitoring.lokiUrl" -}}
 {{- printf "http://loki.%s.svc.cluster.local:3100" .Release.Namespace -}}
 {{- end -}}
@@ -77,6 +80,7 @@ imagePullSecrets:
 {{- if and $i.minio.enabled $i.minio.dashboard }}{{ $s = append $s "minio" }}{{ end -}}
 {{- if and $i.redis.enabled $i.redis.dashboard }}{{ $s = append $s "redis" }}{{ end -}}
 {{- if and $i.kubernetes.enabled $i.kubernetes.dashboard }}{{ $s = append $s "kubernetes" }}{{ end -}}
+{{- if and $i.apm.enabled $i.apm.dashboard }}{{ $s = append $s "apm" }}{{ end -}}
 {{- join "," $s -}}
 {{- end -}}
 
@@ -92,16 +96,36 @@ imagePullSecrets:
 {{- if $has }}true{{ end -}}
 {{- end -}}
 
+{{/* "true" unless dashboards.<set>.<name> is explicitly false. Args: root, set, name. */}}
+{{- define "monitoring.dashboardOn" -}}
+{{- if ne (toString (dig .set .name true .root.Values.dashboards)) "false" }}true{{ end -}}
+{{- end -}}
+
+{{/*
+  Plugin dashboards to copy out of the Grafana Redis plugin: space separated file names.
+  Empty when the Redis dashboard set is off or every plugin dashboard is switched off.
+*/}}
+{{- define "monitoring.redisPluginFiles" -}}
+{{- $r := .Values.integrations.redis -}}
+{{- $out := list -}}
+{{- if and $r.enabled $r.dashboard $r.pluginDashboards.enabled .Values.grafana.enabled -}}
+{{- range $r.pluginDashboards.files -}}
+{{- if include "monitoring.dashboardOn" (dict "root" $ "set" "redis" "name" .) }}{{ $out = append $out . }}{{ end -}}
+{{- end -}}
+{{- end -}}
+{{- join " " $out -}}
+{{- end -}}
+
 {{/* Grafana folder title for a dashboard set */}}
 {{- define "monitoring.dashboardFolder" -}}
-{{- get (dict "logs" "Logs" "kafka" "Kafka" "mariadb" "MariaDB" "mongodb" "MongoDB" "minio" "MinIO" "redis" "Redis" "kubernetes" "Kubernetes") . -}}
+{{- get (dict "logs" "Logs" "kafka" "Kafka" "mariadb" "MariaDB" "mongodb" "MongoDB" "minio" "MinIO" "redis" "Redis" "kubernetes" "Kubernetes" "apm" "APM") . -}}
 {{- end -}}
 
 {{/* Fail fast on invalid combinations so a bad values file never reaches the cluster. */}}
 {{- define "monitoring.validate" -}}
 {{- $i := .Values.integrations -}}
-{{- if and (or $i.kafka.enabled $i.mariadb.enabled $i.mongodb.enabled $i.minio.enabled $i.kubernetes.enabled) (not .Values.prometheus.enabled) -}}
-{{- fail "prometheus.enabled must be true when the kafka, mariadb, mongodb, minio or kubernetes integration is enabled" -}}
+{{- if and (or $i.kafka.enabled $i.mariadb.enabled $i.mongodb.enabled $i.minio.enabled $i.kubernetes.enabled $i.apm.enabled) (not .Values.prometheus.enabled) -}}
+{{- fail "prometheus.enabled must be true when the kafka, mariadb, mongodb, minio, kubernetes or apm integration is enabled" -}}
 {{- end -}}
 {{- if and .Values.promtail.enabled (not .Values.loki.enabled) -}}
 {{- fail "promtail.enabled requires loki.enabled=true (Promtail ships to the in-chart Loki)" -}}

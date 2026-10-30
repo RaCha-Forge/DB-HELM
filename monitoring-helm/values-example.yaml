@@ -1,0 +1,126 @@
+# =============================================================================
+#  <ENVIRONMENT NAME>  -  the ONLY file you edit for this environment.
+#  New environment?  cp values-example.yaml values-<env>.yaml  and fill in the CHANGE_ME values.
+#
+#  Deploy:   helm upgrade --install monitoring . -n fyno -f values-<env>.yaml
+#  Preview:  add  --dry-run=server  (Helm 3.13+)  or  --dry-run
+#
+#  Contains passwords (lines marked SECRET) - keep it out of git (.gitignore does that).
+#  Everything not listed here uses the defaults in values.yaml, which you never edit.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+#  1. ENVIRONMENT
+# -----------------------------------------------------------------------------
+global:
+  imageRegistry: registry.example.com        # every image below is pulled from here
+  imagePullSecrets: []                         # e.g. [regcred] if the registry needs a login
+  storageClassName: CHANGE_ME_storage_class         # for the Grafana, Prometheus, Loki and Tempo disks
+
+
+# -----------------------------------------------------------------------------
+#  2. CORE COMPONENTS
+# -----------------------------------------------------------------------------
+grafana:
+  enabled: true
+  image: { repository: fyno/fyno/grafana, tag: 12-redis, pullPolicy: Always }   # 12-redis = Grafana + Redis plugin
+  admin:
+    user: admin                       # SECRET
+    password: 'CHANGE_ME'             # SECRET
+  service:
+    type: NodePort
+    port: 3000
+  persistence:
+    size: 10Gi                        # must equal the existing disk:  kubectl -n fyno get pvc | grep grafana
+
+prometheus:
+  enabled: true
+  image: { repository: fyno/fyno/prometheus, tag: "3.5", pullPolicy: IfNotPresent }
+  retention: 15d
+  persistence:
+    size: 20Gi                        # must equal the existing disk:  kubectl -n fyno get pvc | grep prometheus
+
+loki:
+  enabled: true
+  image: { repository: fyno/loki, tag: 2.9.0, pullPolicy: IfNotPresent }
+  retention: 120h                     # 5 days
+  persistence:
+    size: 20Gi
+
+promtail:                             # log shipper, one pod per node. Needs the namespace PodSecurity label (see README)
+  enabled: true
+  image: { repository: fyno/promtail, tag: 2.9.0, pullPolicy: IfNotPresent }
+  namespaces: [CHANGE_ME_namespace]                  # whose logs to collect
+  nodeSelector: {}                    # e.g. { app: fyno } = only nodes that run your pods
+
+
+# -----------------------------------------------------------------------------
+#  3. INTEGRATIONS  (one block each: enabled true/false, where it is, how to log in)
+# -----------------------------------------------------------------------------
+integrations:
+
+  # ---- Databases and storage --------------------------------------------------
+  kafka:
+    enabled: false                    # off by default.  To use: enabled: true, host: <broker>, port: 9092
+
+  mariadb:
+    enabled: true
+    image: { repository: fyno/fyno/grafana, tag: mysqld-exporter, pullPolicy: Always }
+    host: CHANGE_ME_mariadb_host
+    port: 3306
+    user: 'CHANGE_ME'                # SECRET
+    password: 'CHANGE_ME'      # SECRET
+
+  mongodb:
+    enabled: true
+    image: { repository: fyno/fyno/grafana, tag: mongodb-exporter, pullPolicy: Always }
+    hosts: [CHANGE_ME_mongo_host:27017]
+    authDatabase: admin
+    user: 'CHANGE_ME'            # SECRET
+    password: 'CHANGE_ME'      # SECRET
+
+  minio:                              # MinIO exposes its own metrics, nothing is deployed
+    enabled: true
+    scheme: http
+    sites:
+      - name: minio
+        targets: ["CHANGE_ME_minio_host:9000"]
+    bearerToken: ''                   # SECRET. Empty if MinIO runs with MINIO_PROMETHEUS_AUTH_TYPE=public, else:
+                                      #   mc admin prometheus generate <alias> --api-version v3
+
+  # ---- Redis: one Grafana datasource per instance ----------------------------
+  redis:
+    enabled: true
+    host: CHANGE_ME_redis_host     # datasource "Redis" (the dashboards use this)
+    port: 6379
+    user: ''
+    password: 'CHANGE_ME'       # SECRET
+    instances:                        # more Redis servers; each appears in the dashboard's datasource drop-down
+      cache:
+        name: Redis 2
+        host: CHANGE_ME_second_redis_host
+        port: 6379
+        password: ''                  # SECRET (empty = no password)
+
+  # ---- Kubernetes workloads ---------------------------------------------------
+  kubernetes:
+    enabled: true
+    namespaces: [CHANGE_ME_namespace]
+    # This account only has namespace rights, so the three cluster-wide options are off.
+    # With cluster-admin rights set all three to true (more: README "Namespace-only mode").
+    clusterRbac: false
+    cadvisor: { enabled: false }
+    kubeStateMetrics:
+      nodeMetrics: false
+      image: { repository: fyno/kube-state-metrics, tag: v2.13.0, pullPolicy: IfNotPresent }
+
+  # ---- Traces / APM (OpenTelemetry Collector + Tempo) -------------------------
+  # Both images must exist in the registry first (docs/apm-instrumentation.md):
+  #   otel/opentelemetry-collector-contrib:0.161.0     grafana/tempo:2.10.10
+  apm:
+    enabled: true
+    retention: 96h                    # 4 days
+    tempo:
+      persistence:
+        size: 20Gi

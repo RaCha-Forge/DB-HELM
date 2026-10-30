@@ -63,6 +63,7 @@ data:
       {{- end }}
       {{- end }}
       {{- if $k.enabled }}
+      {{- if $k.cadvisor.enabled }}
 
       # Pod / container CPU, memory, network from each node's kubelet (cAdvisor)
       - job_name: kubernetes-cadvisor
@@ -96,6 +97,7 @@ data:
           - source_labels: [__name__]
             regex: container_(tasks_state|memory_failures_total|network_tcp_usage_total|network_udp_usage_total|cpu_load_average_10s|file_descriptors|sockets|threads|threads_max|spec_.*)
             action: drop
+      {{- end }}
 
       # Object state: replicas, restarts, requests/limits, HPA, services/endpoints
       - job_name: kube-state-metrics
@@ -103,5 +105,24 @@ data:
         honor_labels: true
         static_configs:
           - targets: ["kube-state-metrics:8080"]
+      {{- end }}
+      {{- if $i.apm.enabled }}
+
+      # APM: request rate / errors / latency built from spans (100% of traffic)
+      - job_name: otel-spanmetrics
+        scrape_interval: 15s
+        static_configs:
+          - targets: ["otel-collector:8889"]
+        metric_relabel_configs:
+          # service_name already identifies the service; drop the duplicates the OTel exporter adds
+          - regex: (collector_instance_id|exported_instance|exported_job|otel_scope_.*)
+            action: labeldrop
+      # APM pipeline health
+      - job_name: otel-collector
+        static_configs:
+          - targets: ["otel-collector:8888"]
+      - job_name: tempo
+        static_configs:
+          - targets: ["tempo:3200"]
       {{- end }}
 {{- end }}

@@ -50,6 +50,9 @@ spec:
             - --storage.tsdb.path=/prometheus
             - --storage.tsdb.retention.time={{ $p.retention }}
             - --web.listen-address=0.0.0.0:9090
+            {{- if .Values.integrations.apm.enabled }}
+            - --enable-feature=exemplar-storage      # latency graph -> trace links (APM)
+            {{- end }}
           ports:
             - name: http
               containerPort: 9090

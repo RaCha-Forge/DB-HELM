@@ -1,0 +1,78 @@
+{{- if .Values.integrations.apm.enabled }}
+{{- $a := .Values.integrations.apm }}
+{{- $c := $a.collector }}
+{{- $sp := $a.sampling }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "otel-collector" "component" "apm") | nindent 4 }}
+spec:
+  replicas: {{ $c.replicas }}
+  selector:
+    matchLabels:
+      {{- include "monitoring.selector" "otel-collector" | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "monitoring.labels" (dict "root" . "name" "otel-collector" "component" "apm") | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/apm/otel-collector-configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "monitoring.pullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+      containers:
+        - name: otel-collector
+          image: {{ include "monitoring.image" (dict "root" . "image" $c.image) }}
+          imagePullPolicy: {{ $c.image.pullPolicy }}
+          args: ["--config=/etc/otelcol/config.yaml"]
+          ports:
+            - { name: otlp-grpc, containerPort: 4317 }
+            - { name: otlp-http, containerPort: 4318 }
+            - { name: spanmetrics, containerPort: 8889 }
+            - { name: telemetry, containerPort: 8888 }
+            - { name: health, containerPort: 13133 }
+          readinessProbe:
+            httpGet: { path: /, port: health }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: health }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            {{- toYaml $c.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otelcol
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: otel-collector-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "monitoring.labels" (dict "root" . "name" "otel-collector" "component" "apm") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "monitoring.selector" "otel-collector" | nindent 4 }}
+  ports:
+    - { name: otlp-grpc, port: 4317, targetPort: otlp-grpc }
+    - { name: otlp-http, port: 4318, targetPort: otlp-http }
+    - { name: spanmetrics, port: 8889, targetPort: spanmetrics }
+    - { name: telemetry, port: 8888, targetPort: telemetry }
+{{- end }}

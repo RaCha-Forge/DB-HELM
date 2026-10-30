@@ -8,6 +8,7 @@ Integrations
   kafka       {{ ternary "ON " "off" .Values.integrations.kafka.enabled }}   mariadb     {{ ternary "ON " "off" .Values.integrations.mariadb.enabled }}
   mongodb     {{ ternary "ON " "off" .Values.integrations.mongodb.enabled }}   minio       {{ ternary "ON " "off" .Values.integrations.minio.enabled }}
   redis       {{ ternary "ON " "off" .Values.integrations.redis.enabled }}   kubernetes  {{ ternary "ON " "off" .Values.integrations.kubernetes.enabled }}
+  apm         {{ ternary "ON " "off" .Values.integrations.apm.enabled }}
 
 Dashboards provisioned: {{ default "none" (include "monitoring.dashboardSets" .) }}
 {{- if .Values.grafana.enabled }}
@@ -23,3 +24,8 @@ Open Grafana:
 
 Check scrape targets:
   kubectl -n {{ .Release.Namespace }} port-forward svc/prometheus 9090:9090   # then http://localhost:9090/targets
+{{- if .Values.integrations.apm.enabled }}
+
+APM: applications send OTLP to http://otel-collector.{{ .Release.Namespace }}.svc.cluster.local:4318
+  per service: envFrom configMap otel-app-config + OTEL_SERVICE_NAME + NODE_OPTIONS (see docs/apm-instrumentation.md)
+{{- end }}
